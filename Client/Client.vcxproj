@@ -53,9 +53,9 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>SFML_STATIC;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SFML_STATIC;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)Common\src\;$(SolutionDir)vendor\imgui-sfml\;$(SolutionDir)vendor\imgui\;$(SolutionDir)vendor\SFML\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src\;$(SolutionDir)Common\src\;$(SolutionDir)vendor\imgui-sfml\;$(SolutionDir)vendor\imgui\;$(SolutionDir)vendor\SFML\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -71,9 +71,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>SFML_STATIC;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SFML_STATIC;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)Common\src\;$(SolutionDir)vendor\imgui-sfml\;$(SolutionDir)vendor\imgui\;$(SolutionDir)vendor\SFML\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src\;$(SolutionDir)Common\src\;$(SolutionDir)vendor\imgui-sfml\;$(SolutionDir)vendor\imgui\;$(SolutionDir)vendor\SFML\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -87,7 +87,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Client.cpp" />
+    <ClCompile Include="src\Core\Application.cpp" />
+    <ClCompile Include="src\Core\Constants.cpp" />
+    <ClCompile Include="src\GameObjects\ControllablePlayer.cpp" />
+    <ClCompile Include="src\GameObjects\Player.cpp" />
     <ClCompile Include="src\imgui_build.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Core\Application.h" />
+    <ClInclude Include="src\Core\Constants.h" />
+    <ClInclude Include="src\GameObjects\ControllablePlayer.h" />
+    <ClInclude Include="src\GameObjects\Player.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
