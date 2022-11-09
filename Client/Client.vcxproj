@@ -87,17 +87,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Client.cpp" />
-    <ClCompile Include="src\Core\Application.cpp" />
-    <ClCompile Include="src\Core\Constants.cpp" />
+    <ClCompile Include="src\Core\ClientApplication.cpp" />
+    <ClCompile Include="src\Core\Colors.cpp" />
+    <ClCompile Include="src\GameObjects\Block.cpp" />
     <ClCompile Include="src\GameObjects\ControllablePlayer.cpp" />
     <ClCompile Include="src\GameObjects\Player.cpp" />
+    <ClCompile Include="src\GameObjects\Projectile.cpp" />
     <ClCompile Include="src\imgui_build.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Core\Application.h" />
-    <ClInclude Include="src\Core\Constants.h" />
+    <ClInclude Include="src\Core\ClientApplication.h" />
+    <ClInclude Include="src\Core\Colors.h" />
+    <ClInclude Include="src\GameObjects\Block.h" />
     <ClInclude Include="src\GameObjects\ControllablePlayer.h" />
     <ClInclude Include="src\GameObjects\Player.h" />
+    <ClInclude Include="src\GameObjects\Projectile.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -39,5 +39,26 @@ float RadToDeg(float angle)
 
 float DegToRad(float angle)
 {
-	return angle * 0.01745;
+	return angle * 0.01745f;
+}
+
+float Clamp(float v, float min, float max)
+{
+	return std::max(std::min(v, max), min);
+}
+
+float Clamp01(float v)
+{
+	return Clamp(v, 0.0f, 1.0f);
+}
+
+float Lerp(float a, float b, float t)
+{
+	t = Clamp01(t);
+	return a * (1.0f - t) + b * t;
+}
+
+sf::Vector2f Lerp(const sf::Vector2f& a, const sf::Vector2f& b, float t)
+{
+	return sf::Vector2f(Lerp(a.x, b.x, t), Lerp(a.y, b.y, t));
 }

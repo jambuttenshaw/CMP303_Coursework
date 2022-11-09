@@ -1,9 +1,9 @@
-#include "Core/Application.h"
+#include "Core/ClientApplication.h"
 
 
 int main()
 {
-    Application* app = new Application;
+    ClientApplication* app = new ClientApplication;
     app->Run();
     delete app;
 

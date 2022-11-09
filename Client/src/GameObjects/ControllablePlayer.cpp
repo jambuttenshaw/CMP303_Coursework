@@ -1,17 +1,22 @@
 #include "ControllablePlayer.h"
 
+#include "Projectile.h"
+#include "Block.h"
+
 #include "MathUtils.h"
 
 
-ControllablePlayer::ControllablePlayer(const sf::Window& window)
+ControllablePlayer::ControllablePlayer(sf::RenderWindow& window)
 	: m_Window(window)
 {
 }
 
-void ControllablePlayer::Update(float dt)
+ControllablePlayer::~ControllablePlayer()
 {
-	auto pos = getPosition();
+}
 
+sf::Vector2f ControllablePlayer::CalculateMovement(float dt)
+{
 	sf::Vector2f velocity{ 0, 0 };
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
 		velocity.x += 1;
@@ -25,13 +30,13 @@ void ControllablePlayer::Update(float dt)
 	Normalize(velocity);
 	velocity *= m_MoveSpeed;
 
-	pos += velocity * dt;
+	return velocity * dt;
+}
 
-	setPosition(pos);
-
+void ControllablePlayer::UpdateRotation()
+{
 	// calculate angle to mouse
-	
-	auto toMouse = static_cast<sf::Vector2f>(sf::Mouse::getPosition(m_Window)) - pos;
+	auto toMouse = static_cast<sf::Vector2f>(sf::Mouse::getPosition(m_Window)) - getPosition();
 	float angle = RadToDeg(atan2f(toMouse.y, toMouse.x));
 
 	setRotation(angle);

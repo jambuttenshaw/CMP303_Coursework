@@ -12,3 +12,10 @@ enum class PlayerTeam
 	Red,
 	Blue
 };
+
+
+enum class GameState
+{
+	FightMode,
+	BuildMode
+};
