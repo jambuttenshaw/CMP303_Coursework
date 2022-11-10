@@ -5,6 +5,8 @@
 #include "Core/Colors.h"
 #include "GameObjects/ControllablePlayer.h"
 
+#include "Network/ClientNetworkSystem.h"
+
 #include <vector>
 
 class Projectile;
@@ -36,6 +38,9 @@ private:
 private:
 	sf::RenderWindow m_Window;
 	sf::Clock m_Clock;
+
+	// Networking
+	ClientNetworkSystem m_NetworkSystem;
 
 	GameState m_GameState = GameState::BuildMode;
 

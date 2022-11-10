@@ -92,6 +92,7 @@
   <ItemGroup>
     <ClInclude Include="src\CommonTypes.h" />
     <ClInclude Include="src\MathUtils.h" />
+    <ClInclude Include="src\NetworkTypes.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\MathUtils.cpp" />

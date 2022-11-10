@@ -174,6 +174,7 @@ void ClientApplication::Update(float dt)
             it++;
     }
 
+    // build mode
     if (m_GameState == GameState::BuildMode)
     {
         // update ghost block
@@ -195,6 +196,15 @@ void ClientApplication::Update(float dt)
         if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && canPlace)
             PlaceBlock();
     }
+    // fight mode
+    else if (m_GameState == GameState::FightMode)
+    {
+
+    }
+
+
+    // network
+    m_NetworkSystem.Update(dt);
 }
 
 void ClientApplication::Render()
