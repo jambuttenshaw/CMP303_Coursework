@@ -5,7 +5,7 @@
 #include "Core/Colors.h"
 #include "GameObjects/ControllablePlayer.h"
 
-#include "Network/ClientNetworkSystem.h"
+#include "Network/NetworkSystem.h"
 
 #include <vector>
 
@@ -40,7 +40,7 @@ private:
 	sf::Clock m_Clock;
 
 	// Networking
-	ClientNetworkSystem m_NetworkSystem;
+	NetworkSystem m_NetworkSystem;
 
 	GameState m_GameState = GameState::BuildMode;
 

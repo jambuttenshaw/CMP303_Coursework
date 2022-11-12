@@ -226,6 +226,14 @@ void ClientApplication::Render()
 
 void ClientApplication::GUI()
 {
+    if (m_NetworkSystem.Connected())
+    {
+        if (ImGui::Button("Disconnect")) m_NetworkSystem.Disconnect();
+    }
+    else
+    {
+        if (ImGui::Button("Connect")) m_NetworkSystem.Connect();
+    }
 }
 
 
