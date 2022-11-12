@@ -22,7 +22,8 @@ void NetworkSystem::Connect()
 	}
 
 	MessageHeader header = CreateHeader(MessageCode::Connect);
-	sf::Packet packet = header.Create();
+	sf::Packet packet;
+	packet << header;
 	SendPacketToServer(packet, true);
 }
 
@@ -35,7 +36,8 @@ void NetworkSystem::Disconnect()
 	}
 
 	MessageHeader header = CreateHeader(MessageCode::Disconnect);
-	sf::Packet packet = header.Create();
+	sf::Packet packet;
+	packet << header;
 	SendPacketToServer(packet, true);
 }
 
@@ -88,7 +90,7 @@ void NetworkSystem::ProcessIncoming()
 
 		// extract header
 		MessageHeader header;
-		header.Extract(packet);
+		packet >> header;
 
 		if (m_WaitingOnReply)
 		{
@@ -109,14 +111,10 @@ void NetworkSystem::ProcessIncoming()
 		if (!Connected())
 		{
 			if (header.messageCode == MessageCode::Connect)
-			{
-				OnConnectResponse(header, packet);
-			}
+				OnConnect(header, packet);
 			else
-			{
 				LOG_ERROR("Receiving a message other than connect before connection is made!");
-				return;
-			}
+			return;
 		}
 
 		if (header.clientID != m_ClientID)
@@ -128,9 +126,11 @@ void NetworkSystem::ProcessIncoming()
 		// process message
 		switch (header.messageCode)
 		{
-		case MessageCode::Connect:			break;
-		case MessageCode::Disconnect:		OnDisconnectResponse(header, packet); break;
-		default:							LOG_WARN("Unknown message code"); break;
+		case MessageCode::Connect:				break;
+		case MessageCode::Disconnect:			OnDisconnect(header, packet); break;
+		case MessageCode::PlayerConnected:		OnOtherPlayerConnect(header, packet); break;
+		case MessageCode::PlayerDisconnected:	OnOtherPlayerDisconnect(header, packet); break;
+		default:								LOG_WARN("Unknown message code {0}", static_cast<int>(header.messageCode)); break;
 		}
 	}
 	else if (status == sf::Socket::Error)
@@ -175,7 +175,7 @@ void NetworkSystem::ResendLastPacketToServer()
 
 /* PROCESS RESPONSES */
 
-void NetworkSystem::OnConnectResponse(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 {
 	if (Connected())
 	{
@@ -190,10 +190,14 @@ void NetworkSystem::OnConnectResponse(const MessageHeader& header, sf::Packet& p
 	m_ClientID = header.clientID;
 	m_SimulationTime = header.time;
 
+	ConnectMessage messageBody;
+	packet >> messageBody;
+
 	LOG_INFO("Connected with ID {}", static_cast<int>(m_ClientID));
+	LOG_INFO("There are {} other players already connected", messageBody.numPlayers);
 }
 
-void NetworkSystem::OnDisconnectResponse(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnDisconnect(const MessageHeader& header, sf::Packet& packet)
 {
 	if (header.clientID == INVALID_CLIENT_ID)
 	{
@@ -205,4 +209,22 @@ void NetworkSystem::OnDisconnectResponse(const MessageHeader& header, sf::Packet
 	m_SimulationTime = 0.0f;
 
 	LOG_INFO("Disconnected");
+}
+
+void NetworkSystem::OnOtherPlayerConnect(const MessageHeader& header, sf::Packet& packet)
+{
+	// extract message body
+	PlayerConnectedMessage messageBody;
+	packet >> messageBody;
+
+	LOG_INFO("Player ID {} has joined", messageBody.playerID);
+}
+
+void NetworkSystem::OnOtherPlayerDisconnect(const MessageHeader& header, sf::Packet& packet)
+{
+	// extract message body
+	PlayerDisconnectedMessage messageBody;
+	packet >> messageBody;
+
+	LOG_INFO("Player ID {} has left", messageBody.playerID);
 }

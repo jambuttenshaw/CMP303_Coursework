@@ -17,6 +17,15 @@ public:
 	void Run();
 
 private:
+
+	void ProcessConnect(const MessageHeader& header, sf::Packet& packet, const sf::IpAddress& ip, const unsigned short port);
+	void ProcessDisconnect(const MessageHeader& header, sf::Packet& packet);
+
+	void ProcessUpdate(const MessageHeader& header, sf::Packet& packet);
+
+	Client& FindClientWithID(ClientID id);
+
+private:
 	sf::UdpSocket m_Socket;
 	
 	std::vector<Client> m_Clients;

@@ -23,8 +23,10 @@ private:
 	void ResendLastPacketToServer();
 
 	// callbacks from messages
-	void OnConnectResponse(const MessageHeader& header, sf::Packet& packet);
-	void OnDisconnectResponse(const MessageHeader& header, sf::Packet& packet);
+	void OnConnect(const MessageHeader& header, sf::Packet& packet);
+	void OnDisconnect(const MessageHeader& header, sf::Packet& packet);
+	void OnOtherPlayerConnect(const MessageHeader& header, sf::Packet& packet);
+	void OnOtherPlayerDisconnect(const MessageHeader& header, sf::Packet& packet);
 
 	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode, m_SimulationTime, m_Sequence }; }
 
