@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/Network.hpp>
+#include "CommonTypes.h"
 
 const char* const ServerAddress = "127.0.0.1";
 const unsigned short ServerPort = 4444;
@@ -56,8 +57,12 @@ sf::Packet& operator >>(sf::Packet& packet, MessageHeader& header);
 
 struct ConnectMessage
 {
+	// info to be given to the newly joining player
+	PlayerTeam team;
+	// info about the players already in the game
 	sf::Uint8 numPlayers;
 	ClientID playerIDs[MAX_NUM_PLAYERS];
+	PlayerTeam playerTeams[MAX_NUM_PLAYERS];
 };
 sf::Packet& operator <<(sf::Packet& packet, const ConnectMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ConnectMessage& message);
@@ -72,6 +77,7 @@ sf::Packet& operator >>(sf::Packet& packet, IntroductionMessage& message);
 struct PlayerConnectedMessage
 {
 	ClientID playerID;
+	PlayerTeam team;
 };
 sf::Packet& operator <<(sf::Packet& packet, const PlayerConnectedMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, PlayerConnectedMessage& message);
@@ -85,7 +91,7 @@ sf::Packet& operator >>(sf::Packet& packet, PlayerDisconnectedMessage& message);
 
 struct UpdateMessage
 {
-	ClientID clientID; // the client that the update data pertains to
+	ClientID playerID; // the client that the update data pertains to
 	float x;
 	float y;
 	float rotation;
@@ -97,6 +103,8 @@ sf::Packet& operator >>(sf::Packet& packet, UpdateMessage& message);
 // NETWORK REPRESENTATIONS OF GAME OBJECTS
 struct PlayerState
 {
+	PlayerTeam team;
+
 	float x;
 	float y;
 	float rotation;

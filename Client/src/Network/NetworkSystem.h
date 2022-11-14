@@ -2,6 +2,16 @@
 
 #include <SFML/Network.hpp>
 #include "Network/NetworkTypes.h"
+#include "Log.h"
+
+#include "GameObjects/ControllablePlayer.h"
+#include "GameObjects/NetworkPlayer.h"
+
+#include <vector>
+
+class ControllablePlayer;
+class NetworkPlayer;
+
 
 class NetworkSystem
 {
@@ -16,6 +26,8 @@ public:
 	NetworkSystem();
 	~NetworkSystem();
 
+	void Init(ControllablePlayer* player, std::vector<NetworkPlayer*>* networkPlayers);
+
 	void Update(float dt);
 
 	inline bool Connected() const { return (m_ClientID != INVALID_CLIENT_ID); }
@@ -23,21 +35,23 @@ public:
 	void Disconnect();
 
 private:
-	void ProcessOutgoing(float dt);
+	void ProcessIncomingUdp();
+	void ProcessOutgoingUdp(float dt);
 	void ProcessIncomingTcp();
-	void ProcessIncoming();
 
-	void SendPacketToServer(sf::Packet& packet);
-	//void SendPacketToServer(sf::Packet& packet, bool expectReply);
-	//void ResendLastPacketToServer();
+	void SendPacketToServerTcp(sf::Packet& packet);
+	void SendPacketToServerUdp(sf::Packet& packet);
 
 	// callbacks from messages
 	void OnConnect(const MessageHeader& header, sf::Packet& packet);
 	void OnDisconnect(const MessageHeader& header, sf::Packet& packet);
 	void OnOtherPlayerConnect(const MessageHeader& header, sf::Packet& packet);
 	void OnOtherPlayerDisconnect(const MessageHeader& header, sf::Packet& packet);
+	void OnRecieveUpdate(const MessageHeader& header, sf::Packet& packet);
 
 	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode, m_SimulationTime }; }
+
+	NetworkPlayer* FindNetworkPlayerWithID(ClientID id);
 
 private:
 	sf::TcpSocket m_TcpSocket;
@@ -52,4 +66,7 @@ private:
 	float m_SimulationTime = 0.0f;
 
 	float m_UpdateTimer = 0.0f;
+
+	ControllablePlayer* m_Player = nullptr;
+	std::vector<NetworkPlayer*>* m_NetworkPlayers = nullptr;
 };

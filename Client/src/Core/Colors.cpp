@@ -37,7 +37,7 @@ const sf::Color& LightColourFromTeam(const PlayerTeam team)
 	return NoTeamColor;
 }
 
-const sf::Color& GetGhostBlockColour(const PlayerTeam team, bool disabled)
+sf::Color GetGhostBlockColour(const PlayerTeam team, bool disabled)
 {
 	auto c = DarkColourFromTeam(disabled ? PlayerTeam::None : team);
 	return sf::Color(c.r, c.g, c.b, GhostBlockAlpha);

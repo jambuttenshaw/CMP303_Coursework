@@ -16,10 +16,6 @@ ClientApplication::ClientApplication()
 
     ImGui::SFML::Init(m_Window);
     
-    // setup imgui
-    
-
-    m_Player.SetTeam(PlayerTeam::Blue);
     m_Player.setPosition(0.5f * m_Window.getSize().x, 0.5f * m_Window.getSize().y);
 
     m_TurfLine = m_Window.getSize().x * 0.5f;
@@ -34,6 +30,9 @@ ClientApplication::ClientApplication()
 
     m_GhostBlock = new Block(m_Player.GetTeam(), { 0, 0 });
     m_GhostBlock->setFillColor(GetGhostBlockColour(m_Player.GetTeam(), true));
+
+    // setup network system
+    m_NetworkSystem.Init(&m_Player, &m_NetworkPlayers);
 }
 
 ClientApplication::~ClientApplication()
@@ -56,51 +55,31 @@ void ClientApplication::Run()
         sf::Time deltaTime = m_Clock.restart();
 
         // input
-        if (m_Window.hasFocus())
+        sf::Event event;
+        while (m_Window.pollEvent(event))
         {
-            sf::Event event;
-            while (m_Window.pollEvent(event))
+            if (!m_Window.hasFocus()) continue;
+
+            ImGui::SFML::ProcessEvent(event);
+
+            // check if imgui has captured the event
+            ImGuiIO& io = ImGui::GetIO();
+            if (io.WantCaptureMouse || io.WantCaptureKeyboard)
+                continue;
+
+            if (event.type == sf::Event::Closed)
+                m_Window.close();
+            else if (event.type == sf::Event::MouseButtonPressed)
             {
-                ImGui::SFML::ProcessEvent(event);
-
-                // check if imgui has captured the event
-                ImGuiIO& io = ImGui::GetIO();
-                if (io.WantCaptureMouse || io.WantCaptureKeyboard)
-                    continue;
-
-                if (event.type == sf::Event::Closed)
-                    m_Window.close();
-                else if (event.type == sf::Event::MouseButtonPressed)
+                if (event.mouseButton.button == sf::Mouse::Button::Left)
                 {
-                    if (event.mouseButton.button == sf::Mouse::Button::Left)
-                    {
-                        if (m_GameState == GameState::FightMode)
-                            TryFireProjectile();
-                    }
-                }
-                else if (event.type == sf::Event::KeyPressed)
-                {
-                    if (event.key.code == sf::Keyboard::Space)
-                    {
-                        switch (m_GameState)
-                        {
-                        case GameState::BuildMode: m_GameState = GameState::FightMode; break;
-                        case GameState::FightMode: m_GameState = GameState::BuildMode; break;
-                        }
-                    }
-                    else if (event.key.code == sf::Keyboard::T)
-                    {
-                        switch (m_Player.GetTeam())
-                        {
-                        case PlayerTeam::Red:  m_Player.SetTeam(PlayerTeam::Blue); break;
-                        case PlayerTeam::Blue: m_Player.SetTeam(PlayerTeam::Red);  break;
-                        }
-                    }
+                    if (m_GameState == GameState::FightMode)
+                        TryFireProjectile();
                 }
             }
-
-            HandleInput(deltaTime.asSeconds());
         }
+
+        if (m_Window.hasFocus()) HandleInput(deltaTime.asSeconds());
 
 
         // update
@@ -218,6 +197,9 @@ void ClientApplication::Update(float dt)
 
     // network
     m_NetworkSystem.Update(dt);
+
+    for (auto& player : m_NetworkPlayers)
+        player->Update(dt);
 }
 
 void ClientApplication::Render()
@@ -230,6 +212,9 @@ void ClientApplication::Render()
 
     for (auto projectile : m_Projectiles)
         m_Window.draw(*projectile);
+
+    for (auto player : m_NetworkPlayers)
+        m_Window.draw(*player);
 
     m_Window.draw(m_Player);
 
@@ -247,6 +232,8 @@ void ClientApplication::GUI()
     {
         if (ImGui::Button("Connect")) m_NetworkSystem.Connect();
     }
+
+    ImGui::Text("Connected Players: %d", m_NetworkPlayers.size());
 }
 
 
@@ -266,8 +253,6 @@ bool ClientApplication::CanPlaceBlock()
 
 void ClientApplication::PlaceBlock()
 {
-    
-
     Block* block = new Block(m_Player.GetTeam(), m_GhostBlock->getPosition());
     m_Blocks.push_back(block);
 }

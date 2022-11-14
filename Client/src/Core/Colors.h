@@ -23,4 +23,4 @@ const sf::Color& ColourFromTeam(const PlayerTeam team);
 const sf::Color& DarkColourFromTeam(const PlayerTeam team);
 const sf::Color& LightColourFromTeam(const PlayerTeam team);
 
-const sf::Color& GetGhostBlockColour(const PlayerTeam team, bool disabled);
+sf::Color GetGhostBlockColour(const PlayerTeam team, bool disabled);

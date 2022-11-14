@@ -15,6 +15,7 @@ class Block;
 
 class ClientApplication
 {
+	friend class NetworkSystem;
 public:
 	ClientApplication();
 	~ClientApplication();
@@ -37,6 +38,7 @@ private:
 
 	bool OnTeamTurf(const sf::Vector2f& pos, PlayerTeam team) const;
 
+
 private:
 	sf::RenderWindow m_Window;
 	sf::Clock m_Clock;
@@ -47,6 +49,7 @@ private:
 	GameState m_GameState = GameState::BuildMode;
 
 	ControllablePlayer m_Player;
+	std::vector<NetworkPlayer*> m_NetworkPlayers;
 
 	sf::RectangleShape m_RedBackground, m_BlueBackground;
 	float m_TurfLine = 0.0f;

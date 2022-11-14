@@ -53,4 +53,7 @@ private:
 	std::queue<ClientID> m_NextClientID;
 
 	sf::Clock m_ServerClock;
+
+	// gameplay
+	unsigned int m_RedTeamPlayerCount = 0, m_BlueTeamPlayerCount = 0;
 };

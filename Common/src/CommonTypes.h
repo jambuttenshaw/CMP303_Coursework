@@ -1,21 +1,26 @@
 #pragma once
 
+#include <SFML/Network.hpp>
 
 /*
 Common types shared between the client and server projects
 */
 
 
-enum class PlayerTeam
+enum class PlayerTeam : sf::Uint8
 {
 	None,
 	Red,
 	Blue
 };
+sf::Packet& operator <<(sf::Packet& packet, const PlayerTeam& team);
+sf::Packet& operator >>(sf::Packet& packet, PlayerTeam& team);
 
 
-enum class GameState
+enum class GameState : sf::Uint8
 {
 	FightMode,
 	BuildMode
 };
+sf::Packet& operator <<(sf::Packet& packet, const GameState& state);
+sf::Packet& operator >>(sf::Packet& packet, GameState& state);

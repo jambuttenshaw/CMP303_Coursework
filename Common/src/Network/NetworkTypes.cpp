@@ -45,20 +45,20 @@ sf::Packet& operator>>(sf::Packet& packet, IntroductionMessage& message)
 
 sf::Packet& operator<<(sf::Packet& packet, const ConnectMessage& message)
 {
-	packet << message.numPlayers;
+	packet << message.team << message.numPlayers;
 	for (unsigned int i = 0; i < message.numPlayers; i++)
 	{
-		packet << message.playerIDs[i];
+		packet << message.playerIDs[i] << message.playerTeams[i];
 	}
 	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, ConnectMessage& message)
 {
-	packet >> message.numPlayers;
+	packet >> message.team >>  message.numPlayers;
 	for (unsigned int i = 0; i < message.numPlayers; i++)
 	{
-		packet >> message.playerIDs[i];
+		packet >> message.playerIDs[i] >> message.playerTeams[i];
 	}
 	return packet;
 }
@@ -66,12 +66,12 @@ sf::Packet& operator>>(sf::Packet& packet, ConnectMessage& message)
 
 sf::Packet& operator<<(sf::Packet& packet, const PlayerConnectedMessage& message)
 {
-	return packet << message.playerID;
+	return packet << message.playerID << message.team;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, PlayerConnectedMessage& message)
 {
-	return packet >> message.playerID;
+	return packet >> message.playerID >> message.team;
 }
 
 
@@ -88,12 +88,12 @@ sf::Packet& operator>>(sf::Packet& packet, PlayerDisconnectedMessage& message)
 
 sf::Packet& operator<<(sf::Packet& packet, const UpdateMessage& message)
 {
-	return packet << message.clientID << message.x << message.y << message.rotation;
+	return packet << message.playerID << message.x << message.y << message.rotation;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, UpdateMessage& message)
 {
-	return packet >> message.clientID >> message.x >> message.y >> message.rotation;
+	return packet >> message.playerID >> message.x >> message.y >> message.rotation;
 }
 
 

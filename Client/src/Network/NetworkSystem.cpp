@@ -1,6 +1,7 @@
 #include "NetworkSystem.h"
 
-#include "Log.h"
+#include "GameObjects\ControllablePlayer.h"
+#include "GameObjects\NetworkPlayer.h"
 
 
 NetworkSystem::NetworkSystem()
@@ -14,6 +15,12 @@ NetworkSystem::NetworkSystem()
 NetworkSystem::~NetworkSystem()
 {
 	if (Connected()) Disconnect();
+}
+
+void NetworkSystem::Init(ControllablePlayer* player, std::vector<NetworkPlayer*>* networkPlayers)
+{
+	m_Player = player;
+	m_NetworkPlayers = networkPlayers;
 }
 
 void NetworkSystem::Connect()
@@ -47,7 +54,7 @@ void NetworkSystem::Disconnect()
 	MessageHeader header = CreateHeader(MessageCode::Disconnect);
 	sf::Packet packet;
 	packet << header;
-	SendPacketToServer(packet);
+	SendPacketToServerTcp(packet);
 }
 
 
@@ -57,6 +64,8 @@ void NetworkSystem::Update(float dt)
 
 	if (m_ConnectionState == ConnectionState::Connected)
 	{
+		ProcessIncomingUdp();
+		ProcessOutgoingUdp(dt);
 		ProcessIncomingTcp();
 	}
 	else if (m_ConnectionState == ConnectionState::Connecting)
@@ -87,24 +96,62 @@ void NetworkSystem::Update(float dt)
 			}
 		}
 	}
-
-	// handle udp traffic
-	ProcessOutgoing(dt);
 }
 
 
-void NetworkSystem::ProcessOutgoing(float dt)
+void NetworkSystem::ProcessIncomingUdp()
+{
+	sf::Packet packet;
+	sf::IpAddress fromAddr;
+	unsigned short fromPort;
+	sf::Socket::Status status = m_UdpSocket.receive(packet, fromAddr, fromPort);
+	if (status == sf::Socket::Done)
+	{
+		MessageHeader header;
+		packet >> header;
+
+		if (header.clientID != m_ClientID)
+		{
+			LOG_WARN("Received message addressed to a different client!");
+			return;
+		}
+
+		switch (header.messageCode)
+		{
+		case MessageCode::Update:		OnRecieveUpdate(header, packet); break;
+		default:						LOG_WARN("Received unexpected message code!"); break;
+		}
+	}
+	else if (status == sf::Socket::Error)
+	{
+		LOG_ERROR("UDP error occurred while trying to receive from server");
+	}
+}
+
+
+void NetworkSystem::ProcessOutgoingUdp(float dt)
 {
 	// send periodic updates to the server
-	if (Connected())
+	m_UpdateTimer += dt;
+	if (m_UpdateTimer > UpdateTickSpeed)
 	{
-		m_UpdateTimer += dt;
-		if (m_UpdateTimer > UpdateTickSpeed)
-		{
-			m_UpdateTimer = 0.0f;
+		m_UpdateTimer = 0.0f;
 
-			//SendUpdateToServer();
-		}
+		// send an update to the server
+		MessageHeader header{ m_ClientID, MessageCode::Update, m_SimulationTime };
+
+		auto playerPos = m_Player->getPosition();
+		UpdateMessage messageBody
+		{
+			m_ClientID,
+			playerPos.x, playerPos.y,
+			m_Player->getRotation()
+		};
+
+		sf::Packet packet;
+		packet << header << messageBody;
+
+		SendPacketToServerUdp(packet);
 	}
 }
 
@@ -135,76 +182,8 @@ void NetworkSystem::ProcessIncomingTcp()
 	}
 }
 
-void NetworkSystem::ProcessIncoming()
-{
-	/*
-	//if (!m_SocketBound) return;
-	//if (!m_Connected) return;
-	
-	// check if the server has sent any messages
-	sf::Packet packet;
-	//sf::IpAddress fromAddress;
-	//unsigned short fromPort;
-	sf::Socket::Status status = m_TcpSocket.receive(packet);
 
-	if (status == sf::Socket::Done)
-	{
-		// message recieved
-
-		// extract header
-		MessageHeader header;
-		packet >> header;
-		
-		if (m_WaitingOnReply)
-		{
-			if (m_ReplySequence == header.sequence)
-			{
-				// we have recieved the reply to the last message we sent
-				m_WaitingOnReply = false;
-			}
-			else
-			{
-				// ignore incoming messages until we get the reply we are looking for
-				LOG_WARN("Ignoring incoming message: waiting on a different reply");
-				return;
-			}
-		}
-		
-		// connect is a special case
-		if (!m_Connected)
-		{
-			if (header.messageCode == MessageCode::Connect)
-				OnConnect(header, packet);
-			else
-				LOG_ERROR("Receiving a message other than connect before connection is made!");
-			return;
-		}
-
-		if (header.clientID != m_ClientID)
-		{
-			LOG_ERROR("Recieved message addressed to another client!");
-			return;
-		}
-
-		// process message
-		switch (header.messageCode)
-		{
-		case MessageCode::Connect:				break;
-		case MessageCode::Disconnect:			OnDisconnect(header, packet); break;
-		case MessageCode::PlayerConnected:		OnOtherPlayerConnect(header, packet); break;
-		case MessageCode::PlayerDisconnected:	OnOtherPlayerDisconnect(header, packet); break;
-		default:								LOG_WARN("Unknown message code {0}", static_cast<int>(header.messageCode)); break;
-		}
-	}
-	else if (status == sf::Socket::Error)
-	{
-		LOG_ERROR("Error occurred while receiving from server!");
-	}
-	*/
-}
-
-
-void NetworkSystem::SendPacketToServer(sf::Packet& packet)
+void NetworkSystem::SendPacketToServerTcp(sf::Packet& packet)
 {
 	sf::Socket::Status status;
 	do
@@ -216,27 +195,15 @@ void NetworkSystem::SendPacketToServer(sf::Packet& packet)
 		LOG_ERROR("Error sending packet to server!");
 }
 
-	/*
-void NetworkSystem::SendPacketToServer(sf::Packet& packet, bool expectReply)
-{
-	m_SocketBound = true;
-
-	if (expectReply)
-	{
-		// copy the message so it can be sent again if needed
-		m_LastMessage = sf::Packet(packet);
-		m_WaitingOnReply = true;
-		m_ReplySequence = m_Sequence;
-	}
 	
-	sf::Socket::Status status = m_Socket.send(packet, ServerAddress, ServerPort);
+void NetworkSystem::SendPacketToServerUdp(sf::Packet& packet)
+{
+	sf::Socket::Status status = m_UdpSocket.send(packet, ServerAddress, ServerPort);
 	if (status != sf::Socket::Done)
 	{
 		LOG_ERROR("Sending message to server failed!");
 	}
-	m_Sequence++;
 }
-*/
 
 // PROCESS RESPONSES
 
@@ -252,12 +219,21 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 	LOG_INFO("Connected with ID {}", static_cast<int>(m_ClientID));
 	LOG_INFO("There are {} other players already connected", messageBody.numPlayers);
 
+	m_Player->SetTeam(messageBody.team);
+
+	for (auto i = 0; i < messageBody.numPlayers; i++)
+	{
+		NetworkPlayer* newPlayer = new NetworkPlayer(messageBody.playerIDs[i]);
+		newPlayer->SetTeam(messageBody.playerTeams[i]);
+		m_NetworkPlayers->push_back(newPlayer);
+	}
+
 	// introduce client to server
 	MessageHeader replyHeader{ m_ClientID, MessageCode::Introduction, m_SimulationTime };
 	IntroductionMessage replyBody{ static_cast<sf::Uint16>(m_UdpSocket.getLocalPort()) };
 	sf::Packet reply;
 	reply << replyHeader << replyBody;
-	SendPacketToServer(reply);
+	SendPacketToServerTcp(reply);
 }
 
 
@@ -268,6 +244,12 @@ void NetworkSystem::OnDisconnect(const MessageHeader& header, sf::Packet& packet
 	m_SimulationTime = 0.0f;
 
 	LOG_INFO("Disconnected");
+
+	for (auto player : *m_NetworkPlayers)
+		delete player;
+	m_NetworkPlayers->clear();
+
+	m_Player->SetTeam(PlayerTeam::None);
 }
 
 void NetworkSystem::OnOtherPlayerConnect(const MessageHeader& header, sf::Packet& packet)
@@ -277,6 +259,10 @@ void NetworkSystem::OnOtherPlayerConnect(const MessageHeader& header, sf::Packet
 	packet >> messageBody;
 
 	LOG_INFO("Player ID {} has joined", messageBody.playerID);
+
+	NetworkPlayer* newPlayer = new NetworkPlayer(messageBody.playerID);
+	newPlayer->SetTeam(messageBody.team);
+	m_NetworkPlayers->push_back(newPlayer);
 }
 
 void NetworkSystem::OnOtherPlayerDisconnect(const MessageHeader& header, sf::Packet& packet)
@@ -286,4 +272,38 @@ void NetworkSystem::OnOtherPlayerDisconnect(const MessageHeader& header, sf::Pac
 	packet >> messageBody;
 
 	LOG_INFO("Player ID {} has left", messageBody.playerID);
+
+	auto it = m_NetworkPlayers->begin();
+	for (; it != m_NetworkPlayers->end(); it++)
+	{
+		if ((*it)->GetID() == messageBody.playerID) break;
+	}
+	if (it != m_NetworkPlayers->end())
+	{
+		delete (*it);
+		m_NetworkPlayers->erase(it);
+	}
+	else
+		LOG_WARN("Player {} doesn't exist!", messageBody.playerID);
 }
+
+void NetworkSystem::OnRecieveUpdate(const MessageHeader& header, sf::Packet& packet)
+{
+	UpdateMessage messageBody;
+	packet >> messageBody;
+
+	NetworkPlayer* player = FindNetworkPlayerWithID(messageBody.playerID);
+	if (player) player->NetworkUpdate(messageBody);
+}
+
+
+
+NetworkPlayer* NetworkSystem::FindNetworkPlayerWithID(ClientID id)
+{
+	for (auto player : *m_NetworkPlayers)
+	{
+		if (player->GetID() == id) return player;
+	}
+	return nullptr;
+}
+

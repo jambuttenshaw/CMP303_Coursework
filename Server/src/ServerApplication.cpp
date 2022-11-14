@@ -120,6 +120,8 @@ void ServerApplication::Run()
 			MessageHeader header;
 			packet >> header;
 
+			// its possible the client has been disconnected between sending an update and the server receiving it
+			// so the client may no longer exist
 			Connection* client = FindClientWithID(header.clientID);
 			if (client)
 			{
@@ -129,8 +131,6 @@ void ServerApplication::Run()
 				default:					LOG_WARN("Received unexpected message code"); break;
 				}
 			}
-			else
-				LOG_WARN("Received data from unconnected client");
 		}
 	}
 }
@@ -149,12 +149,30 @@ void ServerApplication::ProcessConnect()
 	sf::Packet response;
 	response << h;
 
-	// tell them about the current world state
 	ConnectMessage messageBody;
+
+	// assign their team
+	PlayerState& state = m_NewConnection->GetPlayerState();
+	if (m_RedTeamPlayerCount < m_BlueTeamPlayerCount)
+	{
+		state.team = PlayerTeam::Red;
+		m_RedTeamPlayerCount++;
+	}
+	else
+	{
+		state.team = PlayerTeam::Blue;
+		m_BlueTeamPlayerCount++;
+	}
+	messageBody.team = state.team;
+
+	// tell them about the current world state
 	messageBody.numPlayers = static_cast<sf::Uint8>(m_Clients.size());
 	for (size_t i = 0; i < m_Clients.size(); i++)
 	{
 		messageBody.playerIDs[i] = m_Clients[i]->GetID();
+
+		PlayerState& s = m_Clients[i]->GetPlayerState();
+		messageBody.playerTeams[i] = s.team;
 	}
 	response << messageBody;
 
@@ -167,7 +185,7 @@ void ServerApplication::ProcessConnect()
 		sf::Packet p;
 		p << h2;
 
-		PlayerConnectedMessage messageBody2{ newClientID };
+		PlayerConnectedMessage messageBody2{ newClientID, state.team };
 		p << messageBody2;
 
 		c->SendPacketTcp(p);
@@ -232,14 +250,15 @@ void ServerApplication::ProcessUpdate(Connection* client, const MessageHeader& h
 	UpdateMessage message;
 	packet >> message;
 
-	if (message.clientID != client->GetID())
+	if (message.playerID != client->GetID())
 	{
 		LOG_WARN("Client sending update data with incorrect client ID");
 		return;
 	}
 
 	// optimization: check for any changes here before re-sending to all other clients
-	client->GetPlayerState().Update(message);
+	PlayerState& state = client->GetPlayerState();
+	state.Update(message);
 
 	// send out to all other clients
 	for (auto& c : m_Clients)
@@ -256,8 +275,5 @@ Connection* ServerApplication::FindClientWithID(ClientID id)
 	{
 		if (connection->GetID() == id) return connection;
 	}
-
-	LOG_ERROR("Client with ID {} doesn't exist!", id);
-
 	return nullptr;
 }
