@@ -18,18 +18,30 @@ sf::Packet& operator >>(sf::Packet& packet, MessageCode& mc)
 
 sf::Packet& operator<<(sf::Packet& packet, const MessageHeader& header)
 {
-	return packet << header.clientID << header.messageCode << header.time << header.sequence;
+	return packet << header.clientID << header.messageCode << header.time;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, MessageHeader& header)
 {
-	return packet >> header.clientID >> header.messageCode >> header.time >> header.sequence;
+	return packet >> header.clientID >> header.messageCode >> header.time;
 }
 
 
 /*
 MESSAGE BODIES
 */
+
+
+sf::Packet& operator<<(sf::Packet& packet, const IntroductionMessage& message)
+{
+	return packet << message.udpPort;
+}
+
+sf::Packet& operator>>(sf::Packet& packet, IntroductionMessage& message)
+{
+	return packet >> message.udpPort;
+}
+
 
 sf::Packet& operator<<(sf::Packet& packet, const ConnectMessage& message)
 {
@@ -76,10 +88,19 @@ sf::Packet& operator>>(sf::Packet& packet, PlayerDisconnectedMessage& message)
 
 sf::Packet& operator<<(sf::Packet& packet, const UpdateMessage& message)
 {
-	return packet << message.x << message.y << message.rotation;
+	return packet << message.clientID << message.x << message.y << message.rotation;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, UpdateMessage& message)
 {
-	return packet >> message.x >> message.y >> message.rotation;
+	return packet >> message.clientIDmessage.x >> message.y >> message.rotation;
+}
+
+
+
+void PlayerState::Update(const UpdateMessage& m)
+{
+	x = m.x;
+	y = m.y;
+	rotation = m.rotation;
 }

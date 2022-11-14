@@ -20,8 +20,9 @@ const ClientID MAX_CLIENT_ID = INVALID_CLIENT_ID - 1;
 
 enum class MessageCode : sf::Uint8
 {
-	Connect,			// Request to connect to server (C->S)
-	Disconnect,			// Request to disconnect from server (C->S)
+	Connect,			// Confirm connection to server (S->C)
+	Introduction,		// Introduce the server to the client (C->S)
+	Disconnect,			// Request to disconnect from server/Confirm disconnection from server (C<->S)
 	PlayerConnected,	// Announce a new player has connected (S->C)
 	PlayerDisconnected, // Announce a player has disconnected (S->C)
 	
@@ -42,12 +43,12 @@ sf::Packet& operator <<(sf::Packet& packet, const MessageCode& mc);
 sf::Packet& operator >>(sf::Packet& packet, MessageCode& mc);
 
 
+// MESSAGE TYPES
 struct MessageHeader
 {
 	ClientID clientID;
 	MessageCode messageCode;
 	float time;
-	sf::Uint32 sequence;
 };
 sf::Packet& operator <<(sf::Packet& packet, const MessageHeader& header);
 sf::Packet& operator >>(sf::Packet& packet, MessageHeader& header);
@@ -61,6 +62,12 @@ struct ConnectMessage
 sf::Packet& operator <<(sf::Packet& packet, const ConnectMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ConnectMessage& message);
 
+struct IntroductionMessage
+{
+	sf::Uint16 udpPort;
+};
+sf::Packet& operator <<(sf::Packet& packet, const IntroductionMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, const IntroductionMessage& message);
 
 struct PlayerConnectedMessage
 {
@@ -69,7 +76,6 @@ struct PlayerConnectedMessage
 sf::Packet& operator <<(sf::Packet& packet, const PlayerConnectedMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, PlayerConnectedMessage& message);
 
-
 struct PlayerDisconnectedMessage
 {
 	ClientID playerID;
@@ -77,9 +83,9 @@ struct PlayerDisconnectedMessage
 sf::Packet& operator <<(sf::Packet& packet, const PlayerDisconnectedMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, PlayerDisconnectedMessage& message);
 
-
 struct UpdateMessage
 {
+	ClientID clientID; // the client that the update data pertains to
 	float x;
 	float y;
 	float rotation;
@@ -88,16 +94,12 @@ sf::Packet& operator <<(sf::Packet& packet, const UpdateMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, UpdateMessage& message);
 
 
-
-struct Client
+// NETWORK REPRESENTATIONS OF GAME OBJECTS
+struct PlayerState
 {
-	// network properties
-	ClientID id = INVALID_CLIENT_ID;
-	sf::IpAddress ip;
-	unsigned short port = -1;
+	float x;
+	float y;
+	float rotation;
 
-	// in-game player properties
-	float x			= 0.0f;
-	float y			= 0.0f;
-	float rotation	= 0.0f;
+	void Update(const UpdateMessage&);
 };

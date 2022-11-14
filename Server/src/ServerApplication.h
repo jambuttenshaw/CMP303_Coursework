@@ -5,6 +5,8 @@
 #include <queue>
 
 #include "Network/NetworkTypes.h"
+#include "Connection.h"
+#include "Log.h"
 
 
 
@@ -18,17 +20,36 @@ public:
 
 private:
 
-	void ProcessConnect(const MessageHeader& header, sf::Packet& packet, const sf::IpAddress& ip, const unsigned short port);
-	void ProcessDisconnect(const MessageHeader& header, sf::Packet& packet);
+	void ProcessConnect();
+	void ProcessIntroduction(Connection* client, const MessageHeader& header, sf::Packet& packet);
+	void ProcessDisconnect(Connection* client, const MessageHeader& header, sf::Packet& packet);
+	void ProcessUpdate(Connection* client, const MessageHeader& header, sf::Packet& packet);
 
-	void ProcessUpdate(const MessageHeader& header, sf::Packet& packet);
+	Connection* FindClientWithID(ClientID id);
 
-	Client& FindClientWithID(ClientID id);
+	template<typename T>
+	void SendMessageToClientUdp(Connection* client, MessageCode code, T& message)
+	{
+		if (!client->CanSendUdp()) return;
+
+		sf::Packet packet;
+		MessageHeader header{ client->GetID(), code, m_ServerClock.getElapsedTime().asSeconds() };
+		packet << header << message;
+
+		auto status = m_UdpSocket.send(packet, client->GetIP(), client->GetUdpPort());
+		if (status != sf::Socket::Done)
+		{
+			LOG_ERROR("Failed to send udp packet to client ID: {}", client->GetID());
+		}
+	}
 
 private:
-	sf::UdpSocket m_Socket;
+	sf::TcpListener m_ListenSocket;
+	sf::UdpSocket m_UdpSocket;
 	
-	std::vector<Client> m_Clients;
+	std::vector<Connection*> m_Clients;
+	Connection* m_NewConnection = nullptr;
+
 	std::queue<ClientID> m_NextClientID;
 
 	sf::Clock m_ServerClock;

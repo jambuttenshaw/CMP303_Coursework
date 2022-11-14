@@ -5,12 +5,15 @@
 
 NetworkSystem::NetworkSystem()
 {
-	m_Socket.setBlocking(false);
-	srand(time(0));
+	m_TcpSocket.setBlocking(false);
+	m_UdpSocket.setBlocking(false);
+
+	m_UdpSocket.bind(sf::Socket::AnyPort);
 }
 
 NetworkSystem::~NetworkSystem()
 {
+	if (Connected()) Disconnect();
 }
 
 void NetworkSystem::Connect()
@@ -21,10 +24,16 @@ void NetworkSystem::Connect()
 		return;
 	}
 
-	MessageHeader header = CreateHeader(MessageCode::Connect);
-	sf::Packet packet;
-	packet << header;
-	SendPacketToServer(packet, true);
+	auto status = m_TcpSocket.connect(ServerAddress, ServerPort);
+	if (status != sf::Socket::Done)
+	{
+		// wait to recieve client ID from server
+		m_ConnectionState = ConnectionState::Connecting;
+	}
+	else
+	{
+		LOG_ERROR("Error connecting to server!");
+	}
 }
 
 void NetworkSystem::Disconnect()
@@ -38,14 +47,49 @@ void NetworkSystem::Disconnect()
 	MessageHeader header = CreateHeader(MessageCode::Disconnect);
 	sf::Packet packet;
 	packet << header;
-	SendPacketToServer(packet, true);
+	SendPacketToServer(packet);
 }
 
 
 void NetworkSystem::Update(float dt)
 {
+	// handle tcp traffic
+
+	if (m_ConnectionState == ConnectionState::Connected)
+	{
+		ProcessIncomingTcp();
+	}
+	else if (m_ConnectionState == ConnectionState::Connecting)
+	{
+		// handle waiting for client ID
+		sf::Packet packet;
+		auto status = m_TcpSocket.receive(packet);
+		if (status == sf::Socket::Done)
+		{
+			// received data
+			MessageHeader header;
+			packet >> header;
+
+			if (header.messageCode == MessageCode::Connect)
+			{
+				if (header.clientID == INVALID_CLIENT_ID)
+				{
+					// server has rejected connection
+					m_ConnectionState = ConnectionState::Disconnected;
+					LOG_INFO("Server rejected connection");
+				}
+				else
+					OnConnect(header, packet);
+			}
+			else
+			{
+				LOG_ERROR("Waiting for connect message from server, but received a different message");
+			}
+		}
+	}
+
+	// handle udp traffic
 	ProcessOutgoing(dt);
-	ProcessIncoming();
 }
 
 
@@ -62,27 +106,46 @@ void NetworkSystem::ProcessOutgoing(float dt)
 			//SendUpdateToServer();
 		}
 	}
+}
 
-	if (m_WaitingOnReply)
+void NetworkSystem::ProcessIncomingTcp()
+{
+	sf::Packet packet;
+	auto status = m_TcpSocket.receive(packet);
+	if (status == sf::Socket::Done)
 	{
-		m_ResendTimer += dt;
-		if (m_ResendTimer > ResendTimeout)
+		// received data
+		MessageHeader header;
+		packet >> header;
+
+		if (header.clientID != m_ClientID)
 		{
-			m_ResendTimer = 0.0f;
-			ResendLastPacketToServer();
+			LOG_ERROR("Recieved message addressed to a different client!");
+			return;
 		}
+
+		switch (header.messageCode)
+		{
+		case MessageCode::Disconnect:			OnDisconnect(header, packet); break;
+		case MessageCode::PlayerConnected:		OnOtherPlayerConnect(header, packet); break;
+		case MessageCode::PlayerDisconnected:	OnOtherPlayerDisconnect(header, packet); break;
+		default:								LOG_WARN("Recieved unexpected message code");
+		}
+
 	}
 }
 
 void NetworkSystem::ProcessIncoming()
 {
-	if (!m_SocketBound) return;
+	/*
+	//if (!m_SocketBound) return;
+	//if (!m_Connected) return;
 	
 	// check if the server has sent any messages
 	sf::Packet packet;
-	sf::IpAddress fromAddress;
-	unsigned short fromPort;
-	sf::Socket::Status status = m_Socket.receive(packet, fromAddress, fromPort);
+	//sf::IpAddress fromAddress;
+	//unsigned short fromPort;
+	sf::Socket::Status status = m_TcpSocket.receive(packet);
 
 	if (status == sf::Socket::Done)
 	{
@@ -91,7 +154,7 @@ void NetworkSystem::ProcessIncoming()
 		// extract header
 		MessageHeader header;
 		packet >> header;
-
+		
 		if (m_WaitingOnReply)
 		{
 			if (m_ReplySequence == header.sequence)
@@ -106,9 +169,9 @@ void NetworkSystem::ProcessIncoming()
 				return;
 			}
 		}
-
+		
 		// connect is a special case
-		if (!Connected())
+		if (!m_Connected)
 		{
 			if (header.messageCode == MessageCode::Connect)
 				OnConnect(header, packet);
@@ -137,12 +200,25 @@ void NetworkSystem::ProcessIncoming()
 	{
 		LOG_ERROR("Error occurred while receiving from server!");
 	}
+	*/
 }
 
 
+void NetworkSystem::SendPacketToServer(sf::Packet& packet)
+{
+	sf::Socket::Status status;
+	do
+	{
+		status = m_TcpSocket.send(packet);
+	} while (status == sf::Socket::Partial);
+
+	if (status != sf::Socket::Done)
+		LOG_ERROR("Error sending packet to server!");
+}
+
+	/*
 void NetworkSystem::SendPacketToServer(sf::Packet& packet, bool expectReply)
 {
-	if (m_WaitingOnReply) return;
 	m_SocketBound = true;
 
 	if (expectReply)
@@ -160,33 +236,13 @@ void NetworkSystem::SendPacketToServer(sf::Packet& packet, bool expectReply)
 	}
 	m_Sequence++;
 }
+*/
 
-void NetworkSystem::ResendLastPacketToServer()
-{
-	sf::Packet packet{ m_LastMessage };
-
-	sf::Socket::Status status = m_Socket.send(packet, ServerAddress, ServerPort);
-	if (status != sf::Socket::Done)
-	{
-		LOG_ERROR("Sending message to server failed!");
-	}
-}
-
-
-/* PROCESS RESPONSES */
+// PROCESS RESPONSES
 
 void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 {
-	if (Connected())
-	{
-		LOG_WARN("Server sending connect response while already connected!");
-	}
-	if (header.clientID == INVALID_CLIENT_ID)
-	{
-		LOG_ERROR("Connecting to server failed!");
-		return;
-	}
-
+	m_ConnectionState = ConnectionState::Connected;
 	m_ClientID = header.clientID;
 	m_SimulationTime = header.time;
 
@@ -195,16 +251,19 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 
 	LOG_INFO("Connected with ID {}", static_cast<int>(m_ClientID));
 	LOG_INFO("There are {} other players already connected", messageBody.numPlayers);
+
+	// introduce client to server
+	MessageHeader replyHeader{ m_ClientID, MessageCode::Introduction, m_SimulationTime };
+	IntroductionMessage replyBody{ static_cast<sf::Uint16>(m_UdpSocket.getLocalPort()) };
+	sf::Packet reply;
+	reply << replyHeader << replyBody;
+	SendPacketToServer(reply);
 }
+
 
 void NetworkSystem::OnDisconnect(const MessageHeader& header, sf::Packet& packet)
 {
-	if (header.clientID == INVALID_CLIENT_ID)
-	{
-		LOG_ERROR("Connecting to server failed!");
-		return;
-	}
-
+	m_ConnectionState = ConnectionState::Disconnected;
 	m_ClientID = INVALID_CLIENT_ID;
 	m_SimulationTime = 0.0f;
 

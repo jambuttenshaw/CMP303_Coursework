@@ -6,18 +6,37 @@
 
 ServerApplication::ServerApplication()
 {
-	// set up server socket
-	m_Socket.bind(ServerPort);
-	m_Socket.setBlocking(false);
+	LOG_INFO("----Server----");
+	LOG_INFO("Local IP: {}", sf::IpAddress::getLocalAddress().toString());
+
+	m_ListenSocket.setBlocking(false);
+	m_UdpSocket.setBlocking(false);
+
+	if (m_UdpSocket.bind(ServerPort) != sf::Socket::Done)
+	{
+		LOG_ERROR("Server failed to bind to port {}", ServerPort);
+	}
+	LOG_INFO("UDP: listening on port {}", ServerPort);
+
+	if (m_ListenSocket.listen(ServerPort) != sf::Socket::Done)
+	{
+		LOG_ERROR("Server failed to listen on port {}", ServerPort);
+	}
+	LOG_INFO("TCP: listening on port {}", ServerPort);
 
 	for (ClientID id = 0; id < INVALID_CLIENT_ID; id++)
 		m_NextClientID.push(id);
 
 	m_Clients.reserve(MAX_NUM_PLAYERS);
+
+	m_NewConnection = new Connection;
 }
 
 ServerApplication::~ServerApplication()
 {
+	// disconnect all clients
+	for (auto client : m_Clients)
+		delete client;
 }
 
 void ServerApplication::Run()
@@ -26,158 +45,219 @@ void ServerApplication::Run()
 
 	while (true)
 	{
-		// try to recieve data
+
+		// listen for new connections
+		if (m_ListenSocket.accept(m_NewConnection->GetSocket()) == sf::Socket::Done)
+		{
+			// new connection found
+			// setup connection
+
+			// check we don't have too many clients connected
+			if (m_Clients.size() < MAX_NUM_PLAYERS)
+			{
+				ProcessConnect();
+			}
+			else
+			{
+				// reject this clients connection
+				MessageHeader h{ INVALID_CLIENT_ID, MessageCode::Connect, m_ServerClock.getElapsedTime().asSeconds() };
+				sf::Packet response;
+				response << h;
+
+				m_NewConnection->SendPacketTcp(response);
+				m_NewConnection->GetSocket().disconnect();
+			}
+		}
+
+		for (auto client : m_Clients)
+		{
+			// try to recieve data
+			sf::Packet packet;
+			sf::Socket::Status status = client->GetSocket().receive(packet);
+			if (status == sf::Socket::Done)
+			{
+				// data was recieved
+				MessageHeader header;
+				packet >> header;
+
+				switch (header.messageCode)
+				{
+				case MessageCode::Introduction:			ProcessIntroduction(client, header, packet); break;
+				case MessageCode::Disconnect:			ProcessDisconnect(client, header, packet); break;
+				case MessageCode::ShootRequest:			break;
+				case MessageCode::PlaceRequest:			break;
+				case MessageCode::LatencyPing:			break;
+					// these messages are sent from the server to clients, so it would be incorrect for the server to recieve them
+				case MessageCode::Connect:
+				case MessageCode::PlayerConnected:
+				case MessageCode::PlayerDisconnected:
+				case MessageCode::ShootRequestDenied:
+				case MessageCode::PlaceRequestDenied:
+				case MessageCode::Shoot:
+				case MessageCode::Place:
+				case MessageCode::PlayerDeath:
+														LOG_WARN("Received invalid message code"); break;
+				case MessageCode::Update:						  
+														LOG_WARN("Received update message via TCP; updates should be sent via UDP"); break;
+
+				default:								LOG_ERROR("Unknown message code: {}", static_cast<int>(header.messageCode)); break;
+				}
+			}
+			else if (status == sf::Socket::Done)
+			{
+				LOG_ERROR("Error occurred while receiving messages");
+			}
+		}
+
+		// listen for incoming UDP data
 		sf::Packet packet;
-		sf::Packet outgoingData;
 		sf::IpAddress fromAddr;
 		unsigned short fromPort;
-
-		sf::Socket::Status status = m_Socket.receive(packet, fromAddr, fromPort);
+		auto status = m_UdpSocket.receive(packet, fromAddr, fromPort);
 		if (status == sf::Socket::Done)
 		{
 			// data was recieved
 			MessageHeader header;
 			packet >> header;
 
-			switch (header.messageCode)
+			Connection* client = FindClientWithID(header.clientID);
+			if (client)
 			{
-			case MessageCode::Connect:				ProcessConnect(header, packet, fromAddr, fromPort); break;
-			case MessageCode::Disconnect:			ProcessDisconnect(header, packet); break;
-			case MessageCode::Update:				ProcessUpdate(header, packet); break;
-			case MessageCode::ShootRequest:			break;
-			case MessageCode::PlaceRequest:			break;
-
-			case MessageCode::PlayerConnected:		
-			case MessageCode::PlayerDisconnected:	
-			case MessageCode::ShootRequestDenied:	
-			case MessageCode::PlaceRequestDenied:	
-			case MessageCode::Shoot:				
-			case MessageCode::Place:				
-			case MessageCode::PlayerDeath:			
-				LOG_WARN("Server recieved invalid message code"); break;
-
-			default:								LOG_ERROR("Unknown message code: {}", static_cast<int>(header.messageCode)); break;
+				switch (header.messageCode)
+				{
+				case MessageCode::Update:	ProcessUpdate(client, header, packet); break;
+				default:					LOG_WARN("Received unexpected message code"); break;
+				}
 			}
-		}
-		else if (status == sf::Socket::Done)
-		{ 
-			LOG_ERROR("Error occurred while receiving messages");
+			else
+				LOG_WARN("Received data from unconnected client");
 		}
 	}
-
 }
 
-void ServerApplication::ProcessConnect(const MessageHeader& header, sf::Packet& packet, const sf::IpAddress& ip, const unsigned short port)
-{
-	ClientID newClientID;
-	// check we don't have too many clients connected
-	if (m_Clients.size() < MAX_NUM_PLAYERS)
-	{
-		newClientID = m_NextClientID.front();
-		m_NextClientID.pop();
-	}
-	else
-		// reject this clients connection
-		newClientID = INVALID_CLIENT_ID;
 
-	MessageHeader h{ newClientID, MessageCode::Connect, m_ServerClock.getElapsedTime().asSeconds(), header.sequence };
+void ServerApplication::ProcessConnect()
+{
+	ClientID newClientID = m_NextClientID.front();
+	m_NextClientID.pop();
+
+	// setup connection object
+	m_NewConnection->OnTcpConnected(newClientID);
+
+	// tell the client their ID
+	MessageHeader h{ newClientID, MessageCode::Connect, m_ServerClock.getElapsedTime().asSeconds() };
 	sf::Packet response;
 	response << h;
 
-	// tell the new client about the game and the other players in it in the response
+	// tell them about the current world state
 	ConnectMessage messageBody;
 	messageBody.numPlayers = static_cast<sf::Uint8>(m_Clients.size());
 	for (size_t i = 0; i < m_Clients.size(); i++)
-		messageBody.playerIDs[i] = m_Clients[i].id;
-
+	{
+		messageBody.playerIDs[i] = m_Clients[i]->GetID();
+	}
 	response << messageBody;
 
-	m_Socket.send(response, ip, port);
+	m_NewConnection->SendPacketTcp(response);
 
 	// tell all other clients a new player has connected
 	for (auto& c : m_Clients)
 	{
-		MessageHeader h2{ c.id, MessageCode::PlayerConnected, m_ServerClock.getElapsedTime().asSeconds(), 0 };
+		MessageHeader h2{ c->GetID(), MessageCode::PlayerConnected, m_ServerClock.getElapsedTime().asSeconds() };
 		sf::Packet p;
 		p << h2;
 
 		PlayerConnectedMessage messageBody2{ newClientID };
 		p << messageBody2;
 
-		m_Socket.send(p, c.ip, c.port);
+		c->SendPacketTcp(p);
 	}
 
-	m_Clients.push_back({ newClientID, ip, port });
+	m_Clients.push_back(m_NewConnection);
+	LOG_INFO("Player connected with ID {}", newClientID);
+
+	m_NewConnection = new Connection;
 }
 
-void ServerApplication::ProcessDisconnect(const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessIntroduction(Connection* client, const MessageHeader& header, sf::Packet& packet)
 {
-	// need to copy here because client will be getting erased
-	Client client = FindClientWithID(header.clientID);
-	
-	MessageHeader h{ client.id, MessageCode::Disconnect, m_ServerClock.getElapsedTime().asSeconds(), header.sequence };
+	IntroductionMessage message;
+	packet >> message;
+
+	client->SetUdpPort(message.udpPort);
+}
+
+
+
+void ServerApplication::ProcessDisconnect(Connection* client, const MessageHeader& header, sf::Packet& packet)
+{
+	MessageHeader h{ client->GetID(), MessageCode::Disconnect, m_ServerClock.getElapsedTime().asSeconds() };
 	sf::Packet response;
 	response << h;
 
 	// acknowledge the clients requests to disconnect
-	m_Socket.send(response, client.ip, client.port);
+	client->SendPacketTcp(response);
 
-	m_NextClientID.push(client.id);
+	m_NextClientID.push(client->GetID());
 
 	// remove client from vector
 	auto it = m_Clients.begin();
-	for (;it != m_Clients.end(); it++)
+	for (; it != m_Clients.end(); it++)
 	{
-		if ((*it).id == client.id) break;
+		if (*it == client) break;
 	}
 	m_Clients.erase(it);
 
 	// tell all other players a player disconnected
 	for (auto& c : m_Clients)
 	{
-		MessageHeader h2{ c.id, MessageCode::PlayerDisconnected, m_ServerClock.getElapsedTime().asSeconds(), 0 };
+		MessageHeader h2{ c->GetID(), MessageCode::PlayerDisconnected, m_ServerClock.getElapsedTime().asSeconds() };
 		sf::Packet p;
 		p << h2;
 
-		PlayerDisconnectedMessage messageBody2{ client.id };
+		PlayerDisconnectedMessage messageBody2{ client->GetID() };
 		p << messageBody2;
 
-		m_Socket.send(p, c.ip, c.port);
+		c->SendPacketTcp(p);
 	}
+
+	// finally delete the client
+	LOG_INFO("Player ID {} disconnected", client->GetID());
+	delete client;
 }
 
-void ServerApplication::ProcessUpdate(const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessUpdate(Connection* client, const MessageHeader& header, sf::Packet& packet)
 {
-	Client& client = FindClientWithID(header.clientID);
-
 	// unpack packet
 	UpdateMessage message;
 	packet >> message;
 
-	// optimization: check for any changes here before re-sending to all other clients
-	client.x = message.x;
-	client.y = message.y;
-	client.rotation = message.rotation;
+	if (message.clientID != client->GetID())
+	{
+		LOG_WARN("Client sending update data with incorrect client ID");
+		return;
+	}
 
-	// send out to all other clients 
+	// optimization: check for any changes here before re-sending to all other clients
+	client->GetPlayerState().Update(message);
+
+	// send out to all other clients
 	for (auto& c : m_Clients)
 	{
-		if (c.id == client.id) continue;
-
-		//SendUpdate(client.id, message);
+		if (c == client) continue;
+		SendMessageToClientUdp(c, MessageCode::Update, message);
 	}
 }
 
-Client& ServerApplication::FindClientWithID(ClientID id)
+
+Connection* ServerApplication::FindClientWithID(ClientID id)
 {
-	for (auto& client : m_Clients)
+	for (auto& connection : m_Clients)
 	{
-		if (client.id == id) return client;
+		if (connection->GetID() == id) return connection;
 	}
 
 	LOG_ERROR("Client with ID {} doesn't exist!", id);
 
-	// error state
-	Client errClient;
-	return errClient;
+	return nullptr;
 }
