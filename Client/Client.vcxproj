@@ -93,6 +93,7 @@
     <ClCompile Include="src\GameObjects\ControllablePlayer.cpp" />
     <ClCompile Include="src\GameObjects\NetworkPlayer.cpp" />
     <ClCompile Include="src\GameObjects\Player.cpp" />
+    <ClCompile Include="src\GameObjects\PlayerIndicator.cpp" />
     <ClCompile Include="src\GameObjects\Projectile.cpp" />
     <ClCompile Include="src\imgui_build.cpp" />
     <ClCompile Include="src\Network\NetworkSystem.cpp" />
@@ -104,6 +105,7 @@
     <ClInclude Include="src\GameObjects\ControllablePlayer.h" />
     <ClInclude Include="src\GameObjects\NetworkPlayer.h" />
     <ClInclude Include="src\GameObjects\Player.h" />
+    <ClInclude Include="src\GameObjects\PlayerIndicator.h" />
     <ClInclude Include="src\GameObjects\Projectile.h" />
     <ClInclude Include="src\Network\NetworkSystem.h" />
   </ItemGroup>

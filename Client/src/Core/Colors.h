@@ -19,6 +19,8 @@ const sf::Color DarkBlueTeamColor{ 33, 88, 156 };
 
 const sf::Uint8 GhostBlockAlpha = 190;
 
+const sf::Color PlayerIndicatorColor{ 10, 182, 37 };
+
 const sf::Color& ColourFromTeam(const PlayerTeam team);
 const sf::Color& DarkColourFromTeam(const PlayerTeam team);
 const sf::Color& LightColourFromTeam(const PlayerTeam team);

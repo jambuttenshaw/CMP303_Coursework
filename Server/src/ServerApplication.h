@@ -24,6 +24,7 @@ private:
 	void ProcessIntroduction(Connection* client, const MessageHeader& header, sf::Packet& packet);
 	void ProcessDisconnect(Connection* client, const MessageHeader& header, sf::Packet& packet);
 	void ProcessUpdate(Connection* client, const MessageHeader& header, sf::Packet& packet);
+	void ProcessChangeTeam(Connection* client, const MessageHeader& header, sf::Packet& packet);
 
 	Connection* FindClientWithID(ClientID id);
 

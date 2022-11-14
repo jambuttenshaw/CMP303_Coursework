@@ -168,6 +168,8 @@ void ClientApplication::HandleInput(float dt)
 
 void ClientApplication::Update(float dt)
 {
+    m_Indicator.setPosition(m_Player.getPosition());
+
     // update projectiles
     for (auto it = m_Projectiles.begin(); it < m_Projectiles.end();)
     {
@@ -217,6 +219,7 @@ void ClientApplication::Render()
         m_Window.draw(*player);
 
     m_Window.draw(m_Player);
+    m_Window.draw(m_Indicator);
 
     if (m_GameState == GameState::BuildMode)
         m_Window.draw(*m_GhostBlock);
@@ -227,13 +230,15 @@ void ClientApplication::GUI()
     if (m_NetworkSystem.Connected())
     {
         if (ImGui::Button("Disconnect")) m_NetworkSystem.Disconnect();
+        ImGui::Text("Connected Players: %d", m_NetworkPlayers.size());
+
+        ImGui::Separator();
+        if (ImGui::Button("Change Team")) m_NetworkSystem.RequestChangeTeam();
     }
     else
     {
         if (ImGui::Button("Connect")) m_NetworkSystem.Connect();
     }
-
-    ImGui::Text("Connected Players: %d", m_NetworkPlayers.size());
 }
 
 

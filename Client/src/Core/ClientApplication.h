@@ -4,6 +4,7 @@
 
 #include "Core/Colors.h"
 #include "GameObjects/ControllablePlayer.h"
+#include "GameObjects/PlayerIndicator.h"
 
 #include "Network/NetworkSystem.h"
 
@@ -49,6 +50,7 @@ private:
 	GameState m_GameState = GameState::BuildMode;
 
 	ControllablePlayer m_Player;
+	PlayerIndicator m_Indicator;
 	std::vector<NetworkPlayer*> m_NetworkPlayers;
 
 	sf::RectangleShape m_RedBackground, m_BlueBackground;

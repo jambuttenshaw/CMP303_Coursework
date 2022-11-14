@@ -84,6 +84,7 @@ void ServerApplication::Run()
 				{
 				case MessageCode::Introduction:			ProcessIntroduction(client, header, packet); break;
 				case MessageCode::Disconnect:			ProcessDisconnect(client, header, packet); break;
+				case MessageCode::ChangeTeam:			ProcessChangeTeam(client, header, packet); break;
 				case MessageCode::ShootRequest:			break;
 				case MessageCode::PlaceRequest:			break;
 				case MessageCode::LatencyPing:			break;
@@ -265,6 +266,35 @@ void ServerApplication::ProcessUpdate(Connection* client, const MessageHeader& h
 	{
 		if (c == client) continue;
 		SendMessageToClientUdp(c, MessageCode::Update, message);
+	}
+}
+
+void ServerApplication::ProcessChangeTeam(Connection* client, const MessageHeader& header, sf::Packet& packet)
+{
+	// decide if the player is allowed to change team
+	// for now always allow
+	
+	// switch team
+	PlayerState& state = client->GetPlayerState();
+	if (state.team == PlayerTeam::Red)
+	{
+		state.team = PlayerTeam::Blue;
+		m_RedTeamPlayerCount--;
+		m_BlueTeamPlayerCount++;
+	}
+	else
+	{
+		state.team = PlayerTeam::Red;
+		m_RedTeamPlayerCount++;
+		m_BlueTeamPlayerCount--;
+	}
+
+	ChangeTeamMessage message{ client->GetID(), state.team };
+
+	// transmit this change to all clients
+	for (auto c : m_Clients)
+	{
+		c->SendMessageTcp(MessageCode::ChangeTeam, message, m_ServerClock.getElapsedTime().asSeconds());
 	}
 }
 

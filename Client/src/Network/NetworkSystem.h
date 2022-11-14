@@ -31,8 +31,11 @@ public:
 	void Update(float dt);
 
 	inline bool Connected() const { return (m_ClientID != INVALID_CLIENT_ID); }
+
 	void Connect();
 	void Disconnect();
+
+	void RequestChangeTeam();
 
 private:
 	void ProcessIncomingUdp();
@@ -48,6 +51,7 @@ private:
 	void OnOtherPlayerConnect(const MessageHeader& header, sf::Packet& packet);
 	void OnOtherPlayerDisconnect(const MessageHeader& header, sf::Packet& packet);
 	void OnRecieveUpdate(const MessageHeader& header, sf::Packet& packet);
+	void OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& packet);
 
 	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode, m_SimulationTime }; }
 
@@ -59,8 +63,6 @@ private:
 
 	ConnectionState m_ConnectionState = ConnectionState::Disconnected;
 	sf::Uint8 m_ClientID = INVALID_CLIENT_ID;
-
-	sf::Uint32 m_Sequence = 0;
 
 	// time since since simulation began: synchonized with the server
 	float m_SimulationTime = 0.0f;

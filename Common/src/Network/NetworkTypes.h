@@ -28,6 +28,7 @@ enum class MessageCode : sf::Uint8
 	PlayerDisconnected, // Announce a player has disconnected (S->C)
 	
 	Update,				// Send player position/rotation update (C<->S)
+	ChangeTeam,			// Announce a player wants to/has changed team (C<->S)
 	
 	ShootRequest,		// Request to shoot a projectile (C->S)
 	PlaceRequest,		// Request to place a block (C->S)
@@ -98,6 +99,14 @@ struct UpdateMessage
 };
 sf::Packet& operator <<(sf::Packet& packet, const UpdateMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, UpdateMessage& message);
+
+struct ChangeTeamMessage
+{
+	ClientID playerID; // the client that changed team
+	PlayerTeam team; // their new team
+};
+sf::Packet& operator <<(sf::Packet& packet, const ChangeTeamMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, ChangeTeamMessage& message);
 
 
 // NETWORK REPRESENTATIONS OF GAME OBJECTS

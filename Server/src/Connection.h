@@ -23,6 +23,15 @@ public:
 	void SetUdpPort(unsigned short clientPort);
 
 	void SendPacketTcp(sf::Packet& packet);
+	template<typename T>
+	void SendMessageTcp(MessageCode code, T& message, float time)
+	{
+		sf::Packet packet;
+		MessageHeader header{ m_ID, code, time };
+		packet << header << message;
+
+		SendPacketTcp(packet);
+	}
 
 private:
 	sf::TcpSocket m_Socket;

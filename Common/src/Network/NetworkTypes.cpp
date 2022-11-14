@@ -97,6 +97,17 @@ sf::Packet& operator>>(sf::Packet& packet, UpdateMessage& message)
 }
 
 
+sf::Packet& operator<<(sf::Packet& packet, const ChangeTeamMessage& message)
+{
+	return packet << message.playerID << message.team;
+}
+
+sf::Packet& operator>>(sf::Packet& packet, ChangeTeamMessage& message)
+{
+	return packet >> message.playerID >> message.team;
+}
+
+
 
 void PlayerState::Update(const UpdateMessage& m)
 {

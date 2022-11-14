@@ -45,13 +45,15 @@ void NetworkSystem::Connect()
 
 void NetworkSystem::Disconnect()
 {
-	if (!Connected())
-	{
-		LOG_WARN("Attempting to disconnect while already disconnected!");
-		return;
-	}
-
 	MessageHeader header = CreateHeader(MessageCode::Disconnect);
+	sf::Packet packet;
+	packet << header;
+	SendPacketToServerTcp(packet);
+}
+
+void NetworkSystem::RequestChangeTeam()
+{
+	MessageHeader header = CreateHeader(MessageCode::ChangeTeam);
 	sf::Packet packet;
 	packet << header;
 	SendPacketToServerTcp(packet);
@@ -60,6 +62,8 @@ void NetworkSystem::Disconnect()
 
 void NetworkSystem::Update(float dt)
 {
+	m_SimulationTime += dt;
+
 	// handle tcp traffic
 
 	if (m_ConnectionState == ConnectionState::Connected)
@@ -138,7 +142,7 @@ void NetworkSystem::ProcessOutgoingUdp(float dt)
 		m_UpdateTimer = 0.0f;
 
 		// send an update to the server
-		MessageHeader header{ m_ClientID, MessageCode::Update, m_SimulationTime };
+		MessageHeader header = CreateHeader(MessageCode::Update);
 
 		auto playerPos = m_Player->getPosition();
 		UpdateMessage messageBody
@@ -176,6 +180,7 @@ void NetworkSystem::ProcessIncomingTcp()
 		case MessageCode::Disconnect:			OnDisconnect(header, packet); break;
 		case MessageCode::PlayerConnected:		OnOtherPlayerConnect(header, packet); break;
 		case MessageCode::PlayerDisconnected:	OnOtherPlayerDisconnect(header, packet); break;
+		case MessageCode::ChangeTeam:			OnPlayerChangeTeam(header, packet); break;
 		default:								LOG_WARN("Recieved unexpected message code");
 		}
 
@@ -229,7 +234,8 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 	}
 
 	// introduce client to server
-	MessageHeader replyHeader{ m_ClientID, MessageCode::Introduction, m_SimulationTime };
+	
+	MessageHeader replyHeader = CreateHeader(MessageCode::Introduction);
 	IntroductionMessage replyBody{ static_cast<sf::Uint16>(m_UdpSocket.getLocalPort()) };
 	sf::Packet reply;
 	reply << replyHeader << replyBody;
@@ -293,7 +299,23 @@ void NetworkSystem::OnRecieveUpdate(const MessageHeader& header, sf::Packet& pac
 	packet >> messageBody;
 
 	NetworkPlayer* player = FindNetworkPlayerWithID(messageBody.playerID);
-	if (player) player->NetworkUpdate(messageBody);
+	if (player) player->NetworkUpdate(messageBody, m_SimulationTime);
+}
+
+void NetworkSystem::OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& packet)
+{
+	ChangeTeamMessage messageBody;
+	packet >> messageBody;
+
+	if (messageBody.playerID == m_ClientID)
+	{
+		m_Player->SetTeam(messageBody.team);
+	}
+	else
+	{
+		NetworkPlayer* player = FindNetworkPlayerWithID(messageBody.playerID);
+		player->SetTeam(messageBody.team);
+	}
 }
 
 
