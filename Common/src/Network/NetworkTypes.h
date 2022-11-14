@@ -67,7 +67,7 @@ struct IntroductionMessage
 	sf::Uint16 udpPort;
 };
 sf::Packet& operator <<(sf::Packet& packet, const IntroductionMessage& message);
-sf::Packet& operator >>(sf::Packet& packet, const IntroductionMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, IntroductionMessage& message);
 
 struct PlayerConnectedMessage
 {

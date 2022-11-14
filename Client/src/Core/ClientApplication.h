@@ -23,6 +23,8 @@ public:
 
 private:
 
+	// the differene between handle input and update is that handle input is only called when the window is focused
+	void HandleInput(float dt);
 	void Update(float dt);
 	
 	void Render();

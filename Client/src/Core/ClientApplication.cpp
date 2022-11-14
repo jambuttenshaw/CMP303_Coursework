@@ -15,6 +15,9 @@ ClientApplication::ClientApplication()
     m_Window.setVerticalSyncEnabled(true);
 
     ImGui::SFML::Init(m_Window);
+    
+    // setup imgui
+    
 
     m_Player.SetTeam(PlayerTeam::Blue);
     m_Player.setPosition(0.5f * m_Window.getSize().x, 0.5f * m_Window.getSize().y);
@@ -53,40 +56,52 @@ void ClientApplication::Run()
         sf::Time deltaTime = m_Clock.restart();
 
         // input
-        sf::Event event;
-        while (m_Window.pollEvent(event))
+        if (m_Window.hasFocus())
         {
-            ImGui::SFML::ProcessEvent(event);
-            if (event.type == sf::Event::Closed)
-                m_Window.close();
-            if (event.type == sf::Event::MouseButtonPressed)
+            sf::Event event;
+            while (m_Window.pollEvent(event))
             {
-                if (event.mouseButton.button == sf::Mouse::Button::Left)
+                ImGui::SFML::ProcessEvent(event);
+
+                // check if imgui has captured the event
+                ImGuiIO& io = ImGui::GetIO();
+                if (io.WantCaptureMouse || io.WantCaptureKeyboard)
+                    continue;
+
+                if (event.type == sf::Event::Closed)
+                    m_Window.close();
+                else if (event.type == sf::Event::MouseButtonPressed)
                 {
-                    if (m_GameState == GameState::FightMode)
-                        TryFireProjectile();
-                }
-            }
-            if (event.type == sf::Event::KeyPressed)
-            {
-                if (event.key.code == sf::Keyboard::Space)
-                {
-                    switch (m_GameState)
+                    if (event.mouseButton.button == sf::Mouse::Button::Left)
                     {
-                    case GameState::BuildMode: m_GameState = GameState::FightMode; break;
-                    case GameState::FightMode: m_GameState = GameState::BuildMode; break;
+                        if (m_GameState == GameState::FightMode)
+                            TryFireProjectile();
                     }
                 }
-                else if (event.key.code == sf::Keyboard::T)
+                else if (event.type == sf::Event::KeyPressed)
                 {
-                    switch (m_Player.GetTeam())
+                    if (event.key.code == sf::Keyboard::Space)
                     {
-                    case PlayerTeam::Red:  m_Player.SetTeam(PlayerTeam::Blue); break;
-                    case PlayerTeam::Blue: m_Player.SetTeam(PlayerTeam::Red);  break;
+                        switch (m_GameState)
+                        {
+                        case GameState::BuildMode: m_GameState = GameState::FightMode; break;
+                        case GameState::FightMode: m_GameState = GameState::BuildMode; break;
+                        }
+                    }
+                    else if (event.key.code == sf::Keyboard::T)
+                    {
+                        switch (m_Player.GetTeam())
+                        {
+                        case PlayerTeam::Red:  m_Player.SetTeam(PlayerTeam::Blue); break;
+                        case PlayerTeam::Blue: m_Player.SetTeam(PlayerTeam::Red);  break;
+                        }
                     }
                 }
             }
+
+            HandleInput(deltaTime.asSeconds());
         }
+
 
         // update
         ImGui::SFML::Update(m_Window, deltaTime);
@@ -106,7 +121,7 @@ void ClientApplication::Run()
 
 }
 
-void ClientApplication::Update(float dt)
+void ClientApplication::HandleInput(float dt)
 {
     // perform player movement
     sf::Vector2f movement = m_Player.CalculateMovement(dt);
@@ -147,6 +162,33 @@ void ClientApplication::Update(float dt)
     m_Player.UpdateRotation();
 
 
+    // build mode
+    if (m_GameState == GameState::BuildMode)
+    {
+        // update ghost block
+        sf::Vector2f mousePos = static_cast<sf::Vector2f>(sf::Mouse::getPosition(m_Window));
+
+        float s = m_GhostBlock->getSize().x;
+        sf::Vector2f blockPos{ s * roundf(mousePos.x / s), s * roundf(mousePos.y / s) };
+
+        m_GhostBlock->setPosition(blockPos);
+
+        bool canPlace = CanPlaceBlock();
+
+        // update colour
+        m_GhostBlock->setFillColor(GetGhostBlockColour(m_Player.GetTeam(), !canPlace));
+
+        if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && canPlace)
+            PlaceBlock();
+    }
+    // fight mode
+    else if (m_GameState == GameState::FightMode)
+    {
+    }
+}
+
+void ClientApplication::Update(float dt)
+{
     // update projectiles
     for (auto it = m_Projectiles.begin(); it < m_Projectiles.end();)
     {
@@ -173,35 +215,6 @@ void ClientApplication::Update(float dt)
         else
             it++;
     }
-
-    // build mode
-    if (m_GameState == GameState::BuildMode)
-    {
-        // update ghost block
-        sf::Vector2f mousePos = static_cast<sf::Vector2f>(sf::Mouse::getPosition(m_Window));
-
-        float s = m_GhostBlock->getSize().x;
-        sf::Vector2f blockPos{ s * roundf(mousePos.x / s), s * roundf(mousePos.y / s) };
-
-        m_GhostBlock->setPosition(blockPos);
-
-        // check if a block can be placed
-        bool canPlace = CanPlaceBlock();
-
-        // update colour
-        m_GhostBlock->setFillColor(GetGhostBlockColour(m_Player.GetTeam(), !canPlace));
-
-
-        // placing blocks
-        if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && canPlace)
-            PlaceBlock();
-    }
-    // fight mode
-    else if (m_GameState == GameState::FightMode)
-    {
-
-    }
-
 
     // network
     m_NetworkSystem.Update(dt);

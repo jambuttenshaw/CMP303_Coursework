@@ -93,7 +93,7 @@ sf::Packet& operator<<(sf::Packet& packet, const UpdateMessage& message)
 
 sf::Packet& operator>>(sf::Packet& packet, UpdateMessage& message)
 {
-	return packet >> message.clientIDmessage.x >> message.y >> message.rotation;
+	return packet >> message.clientID >> message.x >> message.y >> message.rotation;
 }
 
 
