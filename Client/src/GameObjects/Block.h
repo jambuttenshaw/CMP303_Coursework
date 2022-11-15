@@ -8,13 +8,13 @@
 class Block : public sf::RectangleShape
 {
 public:
-	Block(PlayerTeam team, const sf::Vector2f& position);
+	Block(BlockID id, PlayerTeam team, const sf::Vector2f& position);
 	~Block() = default;
 
+	inline BlockID GetID() const { return m_BlockID; }
 	inline PlayerTeam GetTeam() const { return m_Team; }
 
 private:
-	const float m_Size = 20.0f;
-
-	PlayerTeam m_Team = PlayerTeam::None;
+	const BlockID m_BlockID;
+	const PlayerTeam m_Team;
 };

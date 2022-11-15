@@ -1,16 +1,17 @@
 #include "Block.h"
 
 #include "Core/Colors.h"
+#include "Constants.h"
 
 
-Block::Block(PlayerTeam team, const sf::Vector2f& position)
-	: m_Team(team)
+Block::Block(BlockID id, PlayerTeam team, const sf::Vector2f& position)
+	: m_BlockID(id), m_Team(team)
 {
 	setOutlineColor(sf::Color::Black);
 	setOutlineThickness(-2.0f);
 
-	setSize({ m_Size, m_Size });
-	setOrigin({ 0.5f * m_Size, 0.5f * m_Size });
+	setSize({ BLOCK_SIZE, BLOCK_SIZE});
+	setOrigin({ 0.5f * BLOCK_SIZE, 0.5f * BLOCK_SIZE });
 
 	setFillColor(DarkColourFromTeam(m_Team));
 

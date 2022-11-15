@@ -1,7 +1,11 @@
 #include "NetworkSystem.h"
 
+#include <imgui.h>
+
 #include "GameObjects\ControllablePlayer.h"
 #include "GameObjects\NetworkPlayer.h"
+#include "GameObjects\Projectile.h"
+#include "GameObjects\Block.h"
 
 
 NetworkSystem::NetworkSystem()
@@ -17,60 +21,56 @@ NetworkSystem::~NetworkSystem()
 	if (Connected()) Disconnect();
 }
 
-void NetworkSystem::Init(ControllablePlayer* player, std::vector<NetworkPlayer*>* networkPlayers)
+void NetworkSystem::Init(ControllablePlayer* player,
+	std::vector<NetworkPlayer*>* networkPlayers,
+	std::vector<Projectile*>* projectiles,
+	std::vector<Block*>* blocks)
 {
 	m_Player = player;
 	m_NetworkPlayers = networkPlayers;
+	m_Projectiles = projectiles;
+	m_Blocks = blocks;
 }
 
-void NetworkSystem::Connect()
+void NetworkSystem::GUI()
 {
+	ImGui::Text("Simulation time: %.3f", m_SimulationTime);
 	if (Connected())
 	{
-		LOG_WARN("Attempting to connect while already connected!");
-		return;
-	}
+		ImGui::Separator();
+		if (ImGui::Button("Disconnect")) Disconnect();
+		ImGui::Text("Client ID: %d", m_ClientID);
+		ImGui::Text("Connected Players: %d", m_NetworkPlayers->size() + 1);
+		ImGui::Text("Ping: %.1fms", m_Latency * 1000.0);
 
-	auto status = m_TcpSocket.connect(ServerAddress, ServerPort);
-	if (status != sf::Socket::Done)
-	{
-		// wait to recieve client ID from server
-		m_ConnectionState = ConnectionState::Connecting;
+		ImGui::Separator();
+		if (ImGui::Button("Change Team")) RequestChangeTeam();
 	}
 	else
 	{
-		LOG_ERROR("Error connecting to server!");
+		if (ImGui::Button("Connect")) Connect();
 	}
 }
-
-void NetworkSystem::Disconnect()
-{
-	MessageHeader header = CreateHeader(MessageCode::Disconnect);
-	sf::Packet packet;
-	packet << header;
-	SendPacketToServerTcp(packet);
-}
-
-void NetworkSystem::RequestChangeTeam()
-{
-	MessageHeader header = CreateHeader(MessageCode::ChangeTeam);
-	sf::Packet packet;
-	packet << header;
-	SendPacketToServerTcp(packet);
-}
-
 
 void NetworkSystem::Update(float dt)
 {
 	m_SimulationTime += dt;
 
 	// handle tcp traffic
-
 	if (m_ConnectionState == ConnectionState::Connected)
 	{
 		ProcessIncomingUdp();
 		ProcessOutgoingUdp(dt);
 		ProcessIncomingTcp();
+
+		// measure latency
+		m_LatencyPingTimer += dt;
+		if (m_LatencyPingTimer > LATENCY_PING_FREQUENCY)
+		{
+			m_LatencyPingTimer = 0.0f;
+			SyncSimulationTime();
+		}
+
 	}
 	else if (m_ConnectionState == ConnectionState::Connecting)
 	{
@@ -102,6 +102,95 @@ void NetworkSystem::Update(float dt)
 	}
 }
 
+
+#pragma region Functions
+
+void NetworkSystem::Connect()
+{
+	if (Connected())
+	{
+		LOG_WARN("Attempting to connect while already connected!");
+		return;
+	}
+
+	auto status = m_TcpSocket.connect(SERVER_ADDRESS, SERVER_PORT);
+	if (status != sf::Socket::Done)
+	{
+		// wait to recieve client ID from server
+		m_ConnectionState = ConnectionState::Connecting;
+	}
+	else
+	{
+		LOG_ERROR("Error connecting to server!");
+	}
+}
+
+void NetworkSystem::Disconnect()
+{
+	MessageHeader header = CreateHeader(MessageCode::Disconnect);
+	sf::Packet packet;
+	packet << header;
+	SendPacketToServerTcp(packet);
+}
+
+void NetworkSystem::RequestChangeTeam()
+{
+	MessageHeader header = CreateHeader(MessageCode::ChangeTeam);
+	sf::Packet packet;
+	packet << header;
+	SendPacketToServerTcp(packet);
+}
+
+void NetworkSystem::RequestShoot(const sf::Vector2f& position, const sf::Vector2f& direction)
+{
+	if (!Connected()) return;
+
+	MessageHeader header = CreateHeader(MessageCode::Shoot);
+
+	ShootMessage shootMessage
+	{
+		INVALID_PROJECTILE_ID, // will be assigned by server
+		m_Player->GetTeam(), 
+		position.x, position.y,
+		direction.x, direction.y,
+		m_SimulationTime
+	};
+
+	sf::Packet packet;
+	packet << header << shootMessage;
+	SendPacketToServerTcp(packet);
+}
+
+void NetworkSystem::RequestPlaceBlock(const sf::Vector2f& position)
+{
+	if (!Connected()) return;
+
+	MessageHeader header = CreateHeader(MessageCode::Place);
+
+	PlaceMessage placeMessage
+	{
+		INVALID_BLOCK_ID, // will be assigned by server
+		m_Player->GetTeam(),
+		position.x, position.y
+	};
+
+	sf::Packet packet;
+	packet << header << placeMessage;
+	SendPacketToServerTcp(packet);
+}
+
+void NetworkSystem::SyncSimulationTime()
+{
+	MessageHeader header = CreateHeader(MessageCode::GetServerTime);
+	sf::Packet packet;
+	packet << header;
+	SendPacketToServerTcp(packet);
+	m_LatencyPingBegin = m_SimulationTime;
+}
+
+#pragma endregion
+
+#pragma region Messaging
 
 void NetworkSystem::ProcessIncomingUdp()
 {
@@ -137,7 +226,7 @@ void NetworkSystem::ProcessOutgoingUdp(float dt)
 {
 	// send periodic updates to the server
 	m_UpdateTimer += dt;
-	if (m_UpdateTimer > UpdateTickSpeed)
+	if (m_UpdateTimer > UPDATE_FREQUENCY)
 	{
 		m_UpdateTimer = 0.0f;
 
@@ -181,7 +270,12 @@ void NetworkSystem::ProcessIncomingTcp()
 		case MessageCode::PlayerConnected:		OnOtherPlayerConnect(header, packet); break;
 		case MessageCode::PlayerDisconnected:	OnOtherPlayerDisconnect(header, packet); break;
 		case MessageCode::ChangeTeam:			OnPlayerChangeTeam(header, packet); break;
-		default:								LOG_WARN("Recieved unexpected message code");
+		case MessageCode::GetServerTime:		OnServerTimeUpdate(header, packet); break;
+		case MessageCode::Shoot:				OnShoot(header, packet); break;
+		case MessageCode::ProjectilesDestroyed:	OnProjectilesDestroyed(header, packet); break;
+		case MessageCode::Place:				OnPlace(header, packet); break;
+		case MessageCode::BlocksDestroyed:		OnBlocksDestroyed(header, packet); break;
+		default:								LOG_WARN("Recieved unexpected message code"); break;
 		}
 
 	}
@@ -203,20 +297,21 @@ void NetworkSystem::SendPacketToServerTcp(sf::Packet& packet)
 	
 void NetworkSystem::SendPacketToServerUdp(sf::Packet& packet)
 {
-	sf::Socket::Status status = m_UdpSocket.send(packet, ServerAddress, ServerPort);
+	sf::Socket::Status status = m_UdpSocket.send(packet, SERVER_ADDRESS, SERVER_PORT);
 	if (status != sf::Socket::Done)
 	{
 		LOG_ERROR("Sending message to server failed!");
 	}
 }
 
-// PROCESS RESPONSES
+#pragma endregion
+
+#pragma region Process Responses
 
 void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 {
 	m_ConnectionState = ConnectionState::Connected;
 	m_ClientID = header.clientID;
-	m_SimulationTime = header.time;
 
 	ConnectMessage messageBody;
 	packet >> messageBody;
@@ -233,6 +328,12 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 		m_NetworkPlayers->push_back(newPlayer);
 	}
 
+	for (auto i = 0; i < messageBody.numBlocks; i++)
+	{
+		Block* newBlock = new Block(messageBody.blockIDs[i], messageBody.blockTeams[i], { messageBody.blockXs[i] , messageBody.blockYs[i] });
+		m_Blocks->push_back(newBlock);
+	}
+
 	// introduce client to server
 	
 	MessageHeader replyHeader = CreateHeader(MessageCode::Introduction);
@@ -240,6 +341,9 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 	sf::Packet reply;
 	reply << replyHeader << replyBody;
 	SendPacketToServerTcp(reply);
+
+	// also request the simulation time
+	SyncSimulationTime();
 }
 
 
@@ -254,7 +358,13 @@ void NetworkSystem::OnDisconnect(const MessageHeader& header, sf::Packet& packet
 	for (auto player : *m_NetworkPlayers)
 		delete player;
 	m_NetworkPlayers->clear();
-
+	for (auto projectile : *m_Projectiles)
+		delete projectile;
+	m_Projectiles->clear();
+	for (auto block : *m_Blocks)
+		delete block;
+	m_Blocks->clear();
+	
 	m_Player->SetTeam(PlayerTeam::None);
 }
 
@@ -318,7 +428,85 @@ void NetworkSystem::OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& 
 	}
 }
 
+void NetworkSystem::OnServerTimeUpdate(const MessageHeader&, sf::Packet& packet)
+{
+	// measure round trip time
+	m_Latency = m_SimulationTime - m_LatencyPingBegin;
 
+	ServerTimeMessage messageBody;
+	packet >> messageBody;
+
+	m_SimulationTime = messageBody.serverTime - (0.5f * m_Latency);
+}
+
+void NetworkSystem::OnShoot(const MessageHeader& header, sf::Packet& packet)
+{
+	// extract message body
+	ShootMessage shootMessage;
+	packet >> shootMessage;
+
+	// create projectile object
+	Projectile* newProjectile = new Projectile(shootMessage.id, shootMessage.team, { shootMessage.x, shootMessage.y }, { shootMessage.dirX, shootMessage.dirY} );
+	m_Projectiles->push_back(newProjectile);
+}
+
+void NetworkSystem::OnProjectilesDestroyed(const MessageHeader& header, sf::Packet& packet)
+{
+	ProjectilesDestroyedMessage message;
+	packet >> message;
+
+	for (auto it = m_Projectiles->begin(); it != m_Projectiles->end();)
+	{
+		bool projDestroyed = false;
+		for (auto i = 0; i < message.count; i++)
+		{
+			if ((*it)->GetID() == message.ids[i])
+			{
+				it = m_Projectiles->erase(it);
+				projDestroyed = true;
+				break;
+			}
+		}
+		if (!projDestroyed)
+			it++;
+	}
+}
+
+void NetworkSystem::OnPlace(const MessageHeader& header, sf::Packet& packet)
+{
+	PlaceMessage placeMessage;
+	packet >> placeMessage;
+
+	// create block
+	Block* newBlock = new Block(placeMessage.id, placeMessage.team, { placeMessage.x, placeMessage.y });
+	m_Blocks->push_back(newBlock);
+}
+
+void NetworkSystem::OnBlocksDestroyed(const MessageHeader& header, sf::Packet& packet)
+{
+	BlocksDestroyedMessage message;
+	packet >> message;
+
+	for (auto it = m_Blocks->begin(); it != m_Blocks->end();)
+	{
+		bool blockDestroyed = false;
+		for (auto i = 0; i < message.count; i++)
+		{
+			if ((*it)->GetID() == message.ids[i])
+			{
+				it = m_Blocks->erase(it);
+				blockDestroyed = true;
+				break;
+			}
+		}
+		if (!blockDestroyed)
+			it++;
+	}
+}
+
+#pragma endregion
+
+#pragma region Utility
 
 NetworkPlayer* NetworkSystem::FindNetworkPlayerWithID(ClientID id)
 {
@@ -328,4 +516,4 @@ NetworkPlayer* NetworkSystem::FindNetworkPlayerWithID(ClientID id)
 	}
 	return nullptr;
 }
-
+#pragma endregion

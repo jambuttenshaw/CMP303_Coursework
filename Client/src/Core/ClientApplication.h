@@ -42,7 +42,11 @@ private:
 
 private:
 	sf::RenderWindow m_Window;
+
 	sf::Clock m_Clock;
+
+	float m_FPS = 0.0f;
+	float m_UpdateFPSTimer = 1.0f; // init value of 1 will calculate fps on first frame
 
 	// Networking
 	NetworkSystem m_NetworkSystem;

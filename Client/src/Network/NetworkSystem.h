@@ -5,12 +5,13 @@
 #include "Log.h"
 
 #include "GameObjects/ControllablePlayer.h"
-#include "GameObjects/NetworkPlayer.h"
 
 #include <vector>
 
 class ControllablePlayer;
 class NetworkPlayer;
+class Projectile;
+class Block;
 
 
 class NetworkSystem
@@ -26,8 +27,11 @@ public:
 	NetworkSystem();
 	~NetworkSystem();
 
-	void Init(ControllablePlayer* player, std::vector<NetworkPlayer*>* networkPlayers);
-
+	void Init(	ControllablePlayer* player,
+				std::vector<NetworkPlayer*>* networkPlayers,
+				std::vector<Projectile*>* projectiles,
+				std::vector<Block*>* blocks);
+	void GUI();
 	void Update(float dt);
 
 	inline bool Connected() const { return (m_ClientID != INVALID_CLIENT_ID); }
@@ -36,6 +40,11 @@ public:
 	void Disconnect();
 
 	void RequestChangeTeam();
+
+	void RequestShoot(const sf::Vector2f& position, const sf::Vector2f& direction);
+	void RequestPlaceBlock(const sf::Vector2f& position);
+
+	void SyncSimulationTime();
 
 private:
 	void ProcessIncomingUdp();
@@ -52,8 +61,13 @@ private:
 	void OnOtherPlayerDisconnect(const MessageHeader& header, sf::Packet& packet);
 	void OnRecieveUpdate(const MessageHeader& header, sf::Packet& packet);
 	void OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& packet);
+	void OnServerTimeUpdate(const MessageHeader& header, sf::Packet& packet);
+	void OnShoot(const MessageHeader& header, sf::Packet& packet);
+	void OnProjectilesDestroyed(const MessageHeader& header, sf::Packet& packet);
+	void OnPlace(const MessageHeader& header, sf::Packet& packet);
+	void OnBlocksDestroyed(const MessageHeader& header, sf::Packet& packet);
 
-	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode, m_SimulationTime }; }
+	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode }; }
 
 	NetworkPlayer* FindNetworkPlayerWithID(ClientID id);
 
@@ -69,6 +83,13 @@ private:
 
 	float m_UpdateTimer = 0.0f;
 
+	float m_LatencyPingTimer = 0.0f;
+	float m_LatencyPingBegin = 0.0f;
+	float m_Latency = 0.0f;
+
+	// pointers to game objects and game object containers
 	ControllablePlayer* m_Player = nullptr;
 	std::vector<NetworkPlayer*>* m_NetworkPlayers = nullptr;
+	std::vector<Projectile*>* m_Projectiles = nullptr;
+	std::vector<Block*>* m_Blocks = nullptr;
 };

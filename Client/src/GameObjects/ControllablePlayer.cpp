@@ -4,6 +4,7 @@
 #include "Block.h"
 
 #include "MathUtils.h"
+#include "Constants.h"
 
 
 ControllablePlayer::ControllablePlayer(sf::RenderWindow& window)
@@ -28,7 +29,7 @@ sf::Vector2f ControllablePlayer::CalculateMovement(float dt)
 		velocity.y -= 1;
 
 	Normalize(velocity);
-	velocity *= m_MoveSpeed;
+	velocity *= PLAYER_MOVE_SPEED;
 
 	return velocity * dt;
 }

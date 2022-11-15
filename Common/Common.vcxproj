@@ -90,6 +90,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\Constants.h" />
     <ClInclude Include="src\Log.h" />
     <ClInclude Include="src\CommonTypes.h" />
     <ClInclude Include="src\MathUtils.h" />

@@ -15,7 +15,5 @@ public:
 	void UpdateRotation();
 
 private:
-	const float m_MoveSpeed = 150.0f;
-
 	sf::RenderWindow& m_Window;
 };

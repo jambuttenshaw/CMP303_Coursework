@@ -1,17 +1,8 @@
 #pragma once
 
 #include <SFML/Network.hpp>
+#include "Constants.h"
 #include "CommonTypes.h"
-
-const char* const ServerAddress = "127.0.0.1";
-const unsigned short ServerPort = 4444;
-
-const sf::Uint8 MAX_NUM_PLAYERS = 16;
-
-// update ticks every 100ms
-const float UpdateTickSpeed = 0.1f;
-// the amount of time to wait before resending a message
-const float ResendTimeout = 0.5f;
 
 
 using ClientID = sf::Uint8;
@@ -21,25 +12,25 @@ const ClientID MAX_CLIENT_ID = INVALID_CLIENT_ID - 1;
 
 enum class MessageCode : sf::Uint8
 {
-	Connect,			// Confirm connection to server (S->C)
-	Introduction,		// Introduce the server to the client (C->S)
-	Disconnect,			// Request to disconnect from server/Confirm disconnection from server (C<->S)
-	PlayerConnected,	// Announce a new player has connected (S->C)
-	PlayerDisconnected, // Announce a player has disconnected (S->C)
+	Connect,				// Confirm connection to server (S->C)
+	Introduction,			// Introduce the server to the client (C->S)
+	Disconnect,				// Request to disconnect from server/Confirm disconnection from server (C<->S)
+	PlayerConnected,		// Announce a new player has connected (S->C)
+	PlayerDisconnected,		// Announce a player has disconnected (S->C)
 	
-	Update,				// Send player position/rotation update (C<->S)
-	ChangeTeam,			// Announce a player wants to/has changed team (C<->S)
+	Update,					// Send player position/rotation update (C<->S)
+	ChangeTeam,				// Announce a player wants to/has changed team (C<->S)
 	
-	ShootRequest,		// Request to shoot a projectile (C->S)
-	PlaceRequest,		// Request to place a block (C->S)
-	ShootRequestDenied,	// Announce a clients request to shoot a projectile has been denied (S->C)
-	PlaceRequestDenied,	// Announce a clients request to place a block has been denied (S->C)
+	Shoot,					// Request to shoot/Announce a projectile has been shot (S<->C)
+	ShootRequestDenied,		// Announce a clients request to shoot a projectile has been denied (S->C)
+	Place,					// Request to place/Announce a block has been placed (S<->C)
+	PlaceRequestDenied,		// Announce a clients request to place a block has been denied (S->C)
 	
-	Shoot,				// Announce a projectile has been shot (S->C)
-	Place,				// Announce a block has been placed (S->C)
-	PlayerDeath,		// Announce a player has died (S->C)
+	PlayerDeath,			// Announce a player has died (S->C)
+	ProjectilesDestroyed,	// Announce a projectile has been destroyed (S->C)
+	BlocksDestroyed,			// Announce a block has been destroyed (S->C)
 	
-	LatencyPing,		// Calculate latency between client and server (C->S)
+	GetServerTime			// Calculate latency between client and server to update clients simulation timer (C<->S)
 };
 sf::Packet& operator <<(sf::Packet& packet, const MessageCode& mc);
 sf::Packet& operator >>(sf::Packet& packet, MessageCode& mc);
@@ -50,7 +41,6 @@ struct MessageHeader
 {
 	ClientID clientID;
 	MessageCode messageCode;
-	float time;
 };
 sf::Packet& operator <<(sf::Packet& packet, const MessageHeader& header);
 sf::Packet& operator >>(sf::Packet& packet, MessageHeader& header);
@@ -64,6 +54,16 @@ struct ConnectMessage
 	sf::Uint8 numPlayers;
 	ClientID playerIDs[MAX_NUM_PLAYERS];
 	PlayerTeam playerTeams[MAX_NUM_PLAYERS];
+	
+	// info about projectiles already in game
+	sf::Uint8 numProjectiles;
+
+	// info about blocks already in game
+	sf::Uint8 numBlocks;
+	BlockID blockIDs[MAX_NUM_BLOCKS];
+	PlayerTeam blockTeams[MAX_NUM_BLOCKS];
+	float blockXs[MAX_NUM_BLOCKS];
+	float blockYs[MAX_NUM_BLOCKS];
 };
 sf::Packet& operator <<(sf::Packet& packet, const ConnectMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ConnectMessage& message);
@@ -108,15 +108,105 @@ struct ChangeTeamMessage
 sf::Packet& operator <<(sf::Packet& packet, const ChangeTeamMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ChangeTeamMessage& message);
 
+struct ServerTimeMessage
+{
+	float serverTime;
+};
+sf::Packet& operator <<(sf::Packet& packet, const ServerTimeMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, ServerTimeMessage& message);
+
+struct ShootMessage
+{
+	ProjectileID id;
+	PlayerTeam team; // the team the projectile belongs to
+	float x; // projectile origin
+	float y;
+	float dirX; // projectile direction
+	float dirY; 
+	float shootTime;
+};
+sf::Packet& operator <<(sf::Packet& packet, const ShootMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, ShootMessage& message);
+
+struct ProjectilesDestroyedMessage
+{
+	sf::Uint8 count;
+	ProjectileID ids[MAX_NUM_PROJECTILES]; // id of the destroyed projectile
+};
+sf::Packet& operator <<(sf::Packet& packet, const ProjectilesDestroyedMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, ProjectilesDestroyedMessage& message);
+
+struct PlaceMessage
+{
+	BlockID id;
+	PlayerTeam team;
+	float x;
+	float y;
+};
+sf::Packet& operator <<(sf::Packet& packet, const PlaceMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, PlaceMessage& message);
+
+struct BlocksDestroyedMessage
+{
+	sf::Uint8 count;
+	BlockID ids[MAX_NUM_BLOCKS];
+};
+sf::Packet& operator <<(sf::Packet& packet, const BlocksDestroyedMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, BlocksDestroyedMessage& message);
+
 
 // NETWORK REPRESENTATIONS OF GAME OBJECTS
 struct PlayerState
 {
 	PlayerTeam team;
 
-	float x;
-	float y;
+	sf::Vector2f position;
 	float rotation;
 
-	void Update(const UpdateMessage&);
+	void Update(const UpdateMessage& m)
+	{
+		position.x = m.x;
+		position.y = m.y;
+		rotation = m.rotation;
+	}
 };
+
+struct ProjectileState
+{
+	ProjectileID id;
+	PlayerTeam team;
+
+	sf::Vector2f position;
+	sf::Vector2f direction;
+
+	ProjectileState(ShootMessage shootMessage)
+	{
+		id = shootMessage.id;
+		team = shootMessage.team;
+		position = { shootMessage.x, shootMessage.y };
+		direction = { shootMessage.dirX, shootMessage.dirY };
+	}
+
+	void Step(float dt)
+	{
+		position += direction * PROJECTILE_MOVE_SPEED * dt;
+	}
+};
+
+struct BlockState
+{
+	BlockID id;
+	PlayerTeam team;
+
+	sf::Vector2f position;
+
+	BlockState(PlaceMessage placeMessage)
+	{
+		id = placeMessage.id;
+		team = placeMessage.team;
+		position = { placeMessage.x, placeMessage.y };
+	}
+};
+
+
+bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile);

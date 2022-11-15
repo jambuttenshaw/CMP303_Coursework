@@ -3,14 +3,16 @@
 #include "imgui-sfml.h"
 #include "imgui.h"
 
+#include "GameObjects/NetworkPlayer.h"
 #include "GameObjects/Block.h"
 #include "GameObjects/Projectile.h"
 
 #include "MathUtils.h"
-#include <iostream>
+#include "Constants.h"
+
 
 ClientApplication::ClientApplication()
-	: m_Window(sf::VideoMode(1200, 675), "CMP303 Client"), m_Player(m_Window)
+	: m_Window(sf::VideoMode(static_cast<unsigned int >(WORLD_MAX_X), static_cast<unsigned int>(WORLD_MAX_Y)), "CMP303 Client"), m_Player(m_Window)
 {
     m_Window.setVerticalSyncEnabled(true);
 
@@ -28,11 +30,11 @@ ClientApplication::ClientApplication()
     m_BlueBackground.setPosition({ m_TurfLine, 0 });
 
 
-    m_GhostBlock = new Block(m_Player.GetTeam(), { 0, 0 });
+    m_GhostBlock = new Block(INVALID_BLOCK_ID, m_Player.GetTeam(), { 0, 0 });
     m_GhostBlock->setFillColor(GetGhostBlockColour(m_Player.GetTeam(), true));
 
     // setup network system
-    m_NetworkSystem.Init(&m_Player, &m_NetworkPlayers);
+    m_NetworkSystem.Init(&m_Player, &m_NetworkPlayers, &m_Projectiles, &m_Blocks);
 }
 
 ClientApplication::~ClientApplication()
@@ -53,6 +55,14 @@ void ClientApplication::Run()
     while (m_Window.isOpen())
     {
         sf::Time deltaTime = m_Clock.restart();
+        float dt = deltaTime.asSeconds();
+        
+        m_UpdateFPSTimer += dt;
+        if (m_UpdateFPSTimer > 1.0f)
+        {
+            m_FPS = 1.0f / dt;
+            m_UpdateFPSTimer = 0.0f;
+        }
 
         // input
         sf::Event event;
@@ -79,12 +89,12 @@ void ClientApplication::Run()
             }
         }
 
-        if (m_Window.hasFocus()) HandleInput(deltaTime.asSeconds());
+        if (m_Window.hasFocus()) HandleInput(dt);
 
 
         // update
         ImGui::SFML::Update(m_Window, deltaTime);
-        Update(deltaTime.asSeconds());
+        Update(dt);
 
 
         // render
@@ -120,19 +130,19 @@ void ClientApplication::HandleInput(float dt)
             {
                 // horizontal collision
                 if (dir.x > 0) // moving right
-                    newPos.x = block->getPosition().x - 0.5f * (block->getSize().x + m_Player.GetDimensions().x);
+                    newPos.x = block->getPosition().x - 0.5f * (block->getSize().x + PLAYER_SIZE);
                 else // moving left
                 {
-                    newPos.x = block->getPosition().x + 0.5f * (block->getSize().x + m_Player.GetDimensions().x);
+                    newPos.x = block->getPosition().x + 0.5f * (block->getSize().x + PLAYER_SIZE);
                 }
             }
             else
             {
                 // vertical collision
                 if (dir.y > 0) // moving downwards
-                    newPos.y = block->getPosition().y - 0.5f * (block->getSize().y + m_Player.GetDimensions().y);
+                    newPos.y = block->getPosition().y - 0.5f * (block->getSize().y + PLAYER_SIZE);
                 else // moving upwards
-                    newPos.y = block->getPosition().y + 0.5f * (block->getSize().y + m_Player.GetDimensions().y);
+                    newPos.y = block->getPosition().y + 0.5f * (block->getSize().y + PLAYER_SIZE);
             }
             m_Player.setPosition(newPos);
         }
@@ -171,31 +181,8 @@ void ClientApplication::Update(float dt)
     m_Indicator.setPosition(m_Player.getPosition());
 
     // update projectiles
-    for (auto it = m_Projectiles.begin(); it < m_Projectiles.end();)
-    {
-        Projectile* projectile = *it;
-        
+    for (auto projectile : m_Projectiles)
         projectile->Update(dt);
-        
-        bool hitBlock = false;
-        for (auto block_it = m_Blocks.begin(); block_it < m_Blocks.end();)
-        {
-            Block* block = *block_it;
-            if (block->getGlobalBounds().intersects(projectile->getGlobalBounds()))
-            {
-                if (block->GetTeam() != projectile->GetTeam())
-                    m_Blocks.erase(block_it);
-                hitBlock = true;
-                break;
-            }
-            block_it++;
-        }
-
-        if (hitBlock || projectile->OffScreen(static_cast<sf::Vector2f>(m_Window.getSize())))
-            it = m_Projectiles.erase(it);
-        else
-            it++;
-    }
 
     // network
     m_NetworkSystem.Update(dt);
@@ -227,17 +214,20 @@ void ClientApplication::Render()
 
 void ClientApplication::GUI()
 {
-    if (m_NetworkSystem.Connected())
-    {
-        if (ImGui::Button("Disconnect")) m_NetworkSystem.Disconnect();
-        ImGui::Text("Connected Players: %d", m_NetworkPlayers.size());
+    ImGui::Text("Application:");
+    ImGui::Text("FPS: %0.1f", m_FPS);
 
-        ImGui::Separator();
-        if (ImGui::Button("Change Team")) m_NetworkSystem.RequestChangeTeam();
-    }
-    else
+    ImGui::Separator();
+    ImGui::Text("Network:");
+    m_NetworkSystem.GUI();
+
+    ImGui::Separator();
+    if (ImGui::Button("Toggle Gamemode"))
     {
-        if (ImGui::Button("Connect")) m_NetworkSystem.Connect();
+        if (m_GameState == GameState::BuildMode)
+            m_GameState = GameState::FightMode;
+        else if (m_GameState == GameState::FightMode)
+            m_GameState = GameState::BuildMode;
     }
 }
 
@@ -258,14 +248,13 @@ bool ClientApplication::CanPlaceBlock()
 
 void ClientApplication::PlaceBlock()
 {
-    Block* block = new Block(m_Player.GetTeam(), m_GhostBlock->getPosition());
-    m_Blocks.push_back(block);
+    m_NetworkSystem.RequestPlaceBlock(m_GhostBlock->getPosition());
 }
 
 void ClientApplication::TryFireProjectile()
 {
-    Projectile* projectile = new Projectile(m_Player.GetTeam(), m_Player.getPosition(), m_Player.getRotation());
-    m_Projectiles.push_back(projectile);
+    float dir = m_Player.getRotation();
+    m_NetworkSystem.RequestShoot(m_Player.getPosition(), { cosf(DegToRad(dir)), sinf(DegToRad(dir)) });
 }
 
 bool ClientApplication::OnTeamTurf(const sf::Vector2f& pos, PlayerTeam team) const

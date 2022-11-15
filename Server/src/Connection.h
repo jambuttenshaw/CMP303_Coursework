@@ -24,10 +24,10 @@ public:
 
 	void SendPacketTcp(sf::Packet& packet);
 	template<typename T>
-	void SendMessageTcp(MessageCode code, T& message, float time)
+	void SendMessageTcp(MessageCode code, T& message)
 	{
 		sf::Packet packet;
-		MessageHeader header{ m_ID, code, time };
+		MessageHeader header{ m_ID, code };
 		packet << header << message;
 
 		SendPacketTcp(packet);
