@@ -62,3 +62,42 @@ sf::Vector2f Lerp(const sf::Vector2f& a, const sf::Vector2f& b, float t)
 {
 	return sf::Vector2f(Lerp(a.x, b.x, t), Lerp(a.y, b.y, t));
 }
+
+float LerpAngleDegrees(float a, float b, float t)
+{
+	float difference = fabsf(b - a);
+	if (difference > 180)
+	{
+		// We need to add on to one of the values.
+		if (b > a)
+		{
+			// We'll add it on to start...
+			a += 360;
+		}
+		else
+		{
+			// Add it on to end.
+			b += 360;
+		}
+	}
+
+	// Interpolate it.
+	float value = (a + ((b - a) * t));
+
+	// note: value is not definitely in range [0, 360)
+	return value;
+}
+
+float Smoothstep(float edge0, float edge1, float x)
+{
+	if (x < edge0)
+		return 0.0f;
+
+	if (x >= edge1)
+		return 1.0f;
+
+	// Scale/bias into [0..1] range
+	x = (x - edge0) / (edge1 - edge0);
+
+	return x * x * (3.0f - 2.0f * x);
+}

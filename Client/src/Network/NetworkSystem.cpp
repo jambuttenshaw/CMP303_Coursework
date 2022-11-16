@@ -74,6 +74,9 @@ void NetworkSystem::Update(float dt)
 			m_RemainingGameStateDuration -= dt;
 		else
 			m_RemainingGameStateDuration = 0.0f;
+
+		for (auto& player : *m_NetworkPlayers)
+			player->Update(m_SimulationTime);
 	}
 	else if (m_ConnectionState == ConnectionState::Connecting)
 	{

@@ -185,13 +185,12 @@ void ServerApplication::SimulateGameObjects(float dt)
 		for (auto block_it = m_Blocks.begin(); block_it != m_Blocks.end(); block_it++)
 		{
 			auto block = *block_it;
-			if (block->team == PlayerTeam::None) continue;
 
 			if (BlockProjectileCollision(block, projectile))
 			{
 				hitBlock = true;
 
-				if (block->team != projectile->team)
+				if (block->team != projectile->team && block->team != PlayerTeam::None)
 				{
 					DestroyBlock(block);
 					m_Blocks.erase(block_it);
@@ -269,7 +268,7 @@ void ServerApplication::UpdateGameState(float dt)
 			m_FightModeDuration = std::max(m_FightModeDuration - 10.0f, MIN_FIGHT_MODE_DURATION);
 
 			break;
-		case GameState::BuildMode:
+		case GameState::BuildMode:	
 			m_GameState = GameState::FightMode;
 			m_StateDuration = m_FightModeDuration;
 			m_BuildModeDuration = std::max(m_BuildModeDuration - 10.0f, MIN_BUILD_MODE_DURATION);

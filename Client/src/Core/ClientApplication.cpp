@@ -202,9 +202,6 @@ void ClientApplication::Update(float dt)
 
     // network
     m_NetworkSystem.Update(dt);
-
-    for (auto& player : m_NetworkPlayers)
-        player->Update(dt);
 }
 
 void ClientApplication::Render()
