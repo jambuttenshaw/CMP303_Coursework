@@ -421,12 +421,12 @@ void NetworkSystem::OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& 
 void NetworkSystem::OnServerTimeUpdate(const MessageHeader&, sf::Packet& packet)
 {
 	// measure round trip time
-	m_Latency = m_SimulationTime - m_LatencyPingBegin;
+	float latency = m_SimulationTime - m_LatencyPingBegin;
 
 	ServerTimeMessage messageBody;
 	packet >> messageBody;
 
-	m_SimulationTime = messageBody.serverTime - (0.5f * m_Latency);
+	m_SimulationTime = messageBody.serverTime - (0.5f * latency);
 }
 
 void NetworkSystem::OnShoot(const MessageHeader& header, sf::Packet& packet)
