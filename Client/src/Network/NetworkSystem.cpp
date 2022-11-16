@@ -41,7 +41,6 @@ void NetworkSystem::GUI()
 		if (ImGui::Button("Disconnect")) Disconnect();
 		ImGui::Text("Client ID: %d", m_ClientID);
 		ImGui::Text("Connected Players: %d", m_NetworkPlayers->size() + 1);
-		ImGui::Text("Ping: %.1fms", m_Latency * 1000.0);
 
 		ImGui::Separator();
 		if (ImGui::Button("Change Team")) RequestChangeTeam();
@@ -62,15 +61,6 @@ void NetworkSystem::Update(float dt)
 		ProcessIncomingUdp();
 		ProcessOutgoingUdp(dt);
 		ProcessIncomingTcp();
-
-		// measure latency
-		m_LatencyPingTimer += dt;
-		if (m_LatencyPingTimer > LATENCY_PING_FREQUENCY)
-		{
-			m_LatencyPingTimer = 0.0f;
-			SyncSimulationTime();
-		}
-
 	}
 	else if (m_ConnectionState == ConnectionState::Connecting)
 	{

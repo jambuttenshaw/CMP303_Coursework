@@ -80,12 +80,9 @@ private:
 
 	// time since since simulation began: synchonized with the server
 	float m_SimulationTime = 0.0f;
+	float m_LatencyPingBegin = 0.0f;
 
 	float m_UpdateTimer = 0.0f;
-
-	float m_LatencyPingTimer = 0.0f;
-	float m_LatencyPingBegin = 0.0f;
-	float m_Latency = 0.0f;
 
 	// pointers to game objects and game object containers
 	ControllablePlayer* m_Player = nullptr;

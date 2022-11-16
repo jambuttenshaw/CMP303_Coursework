@@ -12,7 +12,6 @@ const sf::Uint8 MAX_NUM_PROJECTILES = 255;
 
 // update ticks every 100ms
 const float UPDATE_FREQUENCY = 0.1f;
-const float LATENCY_PING_FREQUENCY = 1.0f;
 
 const float WORLD_MIN_X = 0.0f;
 const float WORLD_MAX_X = 800.0f;
