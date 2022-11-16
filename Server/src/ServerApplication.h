@@ -21,6 +21,7 @@ public:
 private:
 
 	void SimulateGameObjects(float dt);
+	void UpdateGameState(float dt);
 
 	void DestroyProjectile(ProjectileState* projectile);
 	void DestroyBlock(BlockState* block);
@@ -56,6 +57,11 @@ private:
 	ProjectileID NextProjectileID();
 	BlockID NextBlockID();
 
+	bool VerifyProjecitleShoot(const sf::Vector2f& position, const PlayerState& player);
+	bool VerifyBlockPlacement(const sf::Vector2f& position, const PlayerState& player);
+
+	bool OnTeamTurf(const sf::Vector2f& p, PlayerTeam team);
+
 private:
 	sf::TcpListener m_ListenSocket;
 	sf::UdpSocket m_UdpSocket;
@@ -72,6 +78,15 @@ private:
 
 	// gameplay
 	unsigned int m_RedTeamPlayerCount = 0, m_BlueTeamPlayerCount = 0;
+
+	GameState m_GameState = INITIAL_GAME_STATE;
+	float m_BuildModeDuration = INITIAL_BUILD_MODE_DURATION;
+	float m_FightModeDuration = INITIAL_FIGHT_MODE_DURATION;
+	float m_StateTimer = 0.0f;
+	float m_StateDuration = 0.0f;
+
+	// turf line starts at halfway
+	float m_TurfLine = 0.5f * (WORLD_MAX_X - WORLD_MIN_X);
 
 	// objects simulated by the server
 	std::vector<ProjectileState*> m_Projectiles;

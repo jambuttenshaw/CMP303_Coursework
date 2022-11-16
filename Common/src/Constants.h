@@ -1,28 +1,45 @@
 #pragma once
 
 #include <SFML/System.hpp>
+#include "CommonTypes.h"
 
 
-const char* const SERVER_ADDRESS = "127.0.0.1";
-const unsigned short SERVER_PORT = 4444;
+// server properties
+extern const char* const SERVER_ADDRESS;
+extern const unsigned short SERVER_PORT;
 
+// max game objects (these are used as stack-allocated array dimensions, so cannot be marked as extern and compiled in a different compilation unit)
 const sf::Uint8 MAX_NUM_PLAYERS = 16;
 const sf::Uint8 MAX_NUM_BLOCKS = 255;
 const sf::Uint8 MAX_NUM_PROJECTILES = 255;
 
 // update ticks every 100ms
-const float UPDATE_FREQUENCY = 0.1f;
+extern const float UPDATE_FREQUENCY;
 
-const float WORLD_MIN_X = 0.0f;
-const float WORLD_MAX_X = 800.0f;
+// world bounds
+extern const float WORLD_MIN_X;
+extern const float WORLD_MAX_X;
+extern const float WORLD_MIN_Y;
+extern const float WORLD_MAX_Y;
 
-const float WORLD_MIN_Y = 0.0f;
-const float WORLD_MAX_Y = 600.0f;
+extern const float SPAWN_WIDTH;
 
-const float PLAYER_SIZE = 15.0f;
-const float PLAYER_MOVE_SPEED = 150.0f;
+// player properties
+extern const float PLAYER_SIZE;
+extern const float PLAYER_MOVE_SPEED;
 
-const float PROJECTILE_RADIUS = 3.0f;
-const float PROJECTILE_MOVE_SPEED = 750.0f;
+// projectile properties
+extern const float PROJECTILE_RADIUS;
+extern const float PROJECTILE_MOVE_SPEED;
 
-const float BLOCK_SIZE = 20.0f;
+// block properties
+extern const float BLOCK_SIZE;
+extern const float BLOCK_PLACE_RADIUS;
+
+// game state changes
+extern const GameState INITIAL_GAME_STATE;
+
+extern const float INITIAL_BUILD_MODE_DURATION;
+extern const float INITIAL_FIGHT_MODE_DURATION;
+extern const float MIN_BUILD_MODE_DURATION;
+extern const float MIN_FIGHT_MODE_DURATION;

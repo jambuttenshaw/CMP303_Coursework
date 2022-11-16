@@ -19,11 +19,14 @@ sf::Packet& operator >>(sf::Packet& packet, PlayerTeam& team);
 
 enum class GameState : sf::Uint8
 {
+	Invalid,
 	FightMode,
 	BuildMode
 };
 sf::Packet& operator <<(sf::Packet& packet, const GameState& state);
 sf::Packet& operator >>(sf::Packet& packet, GameState& state);
+
+const char* GameStateToStr(GameState s);
 
 
 using ProjectileID = sf::Uint32;

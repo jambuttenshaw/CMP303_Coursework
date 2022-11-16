@@ -23,6 +23,7 @@ public:
 	void SetUdpPort(unsigned short clientPort);
 
 	void SendPacketTcp(sf::Packet& packet);
+	void SendMessageTcp(MessageCode code);
 	template<typename T>
 	void SendMessageTcp(MessageCode code, T& message)
 	{

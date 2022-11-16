@@ -98,6 +98,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\CommonTypes.cpp" />
+    <ClCompile Include="src\ConstantDefinitions.cpp" />
     <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="src\MathUtils.cpp" />
     <ClCompile Include="src\Network\NetworkTypes.cpp" />

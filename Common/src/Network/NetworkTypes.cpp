@@ -53,6 +53,7 @@ sf::Packet& operator<<(sf::Packet& packet, const ConnectMessage& message)
 	packet << message.numBlocks;
 	for (unsigned int i = 0; i < message.numBlocks; i++)
 		packet << message.blockIDs[i] << message.blockTeams[i] << message.blockXs[i] << message.blockYs[i];
+	packet << message.gameState << message.remainingStateDuration << message.turfLine;
 	return packet;
 }
 
@@ -64,6 +65,7 @@ sf::Packet& operator>>(sf::Packet& packet, ConnectMessage& message)
 	packet >> message.numBlocks;
 	for (unsigned int i = 0; i < message.numBlocks; i++)
 		packet >> message.blockIDs[i] >> message.blockTeams[i] >> message.blockXs[i] >> message.blockYs[i];
+	packet >> message.gameState >> message.remainingStateDuration >> message.turfLine;
 	return packet;
 }
 
@@ -175,13 +177,36 @@ sf::Packet& operator>>(sf::Packet& packet, BlocksDestroyedMessage& message)
 }
 
 
+sf::Packet& operator<<(sf::Packet& packet, const ChangeGameStateMessage& message)
+{
+	return packet << message.state << message.stateDuration;
+}
+
+sf::Packet& operator>>(sf::Packet& packet, ChangeGameStateMessage& message)
+{
+	return packet >> message.state >> message.stateDuration;
+}
+
+
+sf::Packet& operator<<(sf::Packet& packet, const TurfLineMoveMessage& message)
+{
+	return packet << message.newTurfLine;
+}
+
+sf::Packet& operator>>(sf::Packet& packet, TurfLineMoveMessage& message)
+{
+	return packet >> message.newTurfLine;
+}
+
+
 bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile)
 {
-	const float r1 = 0.5f * BLOCK_SIZE;
-	const float r2 = sqrtf(0.5f * BLOCK_SIZE * BLOCK_SIZE);
+	const float r1 = 0.5f * BLOCK_SIZE; // block inner circle radius
+	const float r2 = sqrtf(0.5f * BLOCK_SIZE * BLOCK_SIZE); // block outer circle radius
 	float sqrDistanceBetweenCentres = SqrLength(block->position - projectile->position);
-	if (sqrDistanceBetweenCentres > (r1 + PROJECTILE_RADIUS) * (r1 + PROJECTILE_RADIUS)) return false;
-	if (sqrDistanceBetweenCentres < (r2 + PROJECTILE_RADIUS) * (r2 + PROJECTILE_RADIUS)) return true;
+
+	if (sqrDistanceBetweenCentres > (r2 + PROJECTILE_RADIUS) * (r2 + PROJECTILE_RADIUS)) return false;
+	if (sqrDistanceBetweenCentres < (r1 + PROJECTILE_RADIUS) * (r1 + PROJECTILE_RADIUS)) return true;
 
 	sf::Vector2f c1ToC2 = Normalized(block->position - projectile->position);
 	sf::Vector2f p = projectile->position + PROJECTILE_RADIUS * c1ToC2;
@@ -190,4 +215,12 @@ bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile)
 	if (p.y < block->position.y - 0.5f * BLOCK_SIZE || p.y > block->position.y + 0.5f * BLOCK_SIZE) return false;
 
 	return true;
+}
+
+
+bool PlayerProjectileCollision(PlayerState* player, ProjectileState* projectile)
+{
+	float sqrDistanceBetweenCentres = SqrLength(player->position - projectile->position);
+	float playerRadius = 0.5f * PLAYER_SIZE;
+	return sqrDistanceBetweenCentres < (PROJECTILE_RADIUS + playerRadius)* (PROJECTILE_RADIUS + playerRadius);
 }

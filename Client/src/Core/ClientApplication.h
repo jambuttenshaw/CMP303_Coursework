@@ -37,6 +37,7 @@ private:
 	
 	void TryFireProjectile();
 
+	void ChangeTurfLine(float turfLine);
 	bool OnTeamTurf(const sf::Vector2f& pos, PlayerTeam team) const;
 
 
@@ -51,7 +52,7 @@ private:
 	// Networking
 	NetworkSystem m_NetworkSystem;
 
-	GameState m_GameState = GameState::BuildMode;
+	GameState m_GameState = GameState::Invalid;
 
 	ControllablePlayer m_Player;
 	PlayerIndicator m_Indicator;
@@ -64,5 +65,5 @@ private:
 	std::vector<Block*> m_Blocks;
 
 	Block* m_GhostBlock = nullptr;
-	const float m_BlockPlaceRadius = 40.0f;
+	sf::Vector2f m_LastPlaceLocation{ 0, 0 };
 };

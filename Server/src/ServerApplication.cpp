@@ -1,6 +1,7 @@
 #include "ServerApplication.h"
 
 #include "Log.h"
+#include "MathUtils.h"
 #include "Network/NetworkTypes.h"
 
 
@@ -31,6 +32,16 @@ ServerApplication::ServerApplication()
 	m_Clients.reserve(MAX_NUM_PLAYERS);
 
 	m_NewConnection = new Connection;
+
+
+	// setup gameplay
+	switch (m_GameState)
+	{
+	case GameState::Invalid:	LOG_ERROR("Invalid game state"); break;
+	case GameState::BuildMode:	m_StateDuration = m_BuildModeDuration; break;
+	case GameState::FightMode:	m_StateDuration = m_FightModeDuration; break;
+	default:					LOG_ERROR("Unknown game state"); break;
+	}
 }
 
 ServerApplication::~ServerApplication()
@@ -53,10 +64,12 @@ void ServerApplication::Run()
 
 	while (true)
 	{
-		float dt = m_ServerClock.restart().asSeconds();
-		m_SimulationTime += dt;
+		float lastSimTime = m_SimulationTime;
+		m_SimulationTime = m_ServerClock.getElapsedTime().asMilliseconds() / 1000.0f;
+		float dt = m_SimulationTime - lastSimTime;
 
 		SimulateGameObjects(dt);
+		UpdateGameState(dt);
 
 		// listen for new connections
 		if (m_ListenSocket.accept(m_NewConnection->GetSocket()) == sf::Socket::Done)
@@ -72,11 +85,8 @@ void ServerApplication::Run()
 			else
 			{
 				// reject this clients connection
-				MessageHeader connectHeader{ INVALID_CLIENT_ID, MessageCode::Connect };
-				
-				sf::Packet connectPacket;
-				connectPacket << connectHeader;
-				m_NewConnection->SendPacketTcp(connectPacket);
+				// this will send invalid client id back to the new client
+				m_NewConnection->SendMessageTcp(MessageCode::Connect);
 				m_NewConnection->GetSocket().disconnect();
 			}
 		}
@@ -109,6 +119,8 @@ void ServerApplication::Run()
 				case MessageCode::PlayerDeath:
 				case MessageCode::ProjectilesDestroyed:
 				case MessageCode::BlocksDestroyed:
+				case MessageCode::ChangeGameState:
+				case MessageCode::TurfLineMoved:
 														LOG_WARN("Received invalid message code"); break;
 				case MessageCode::Update:						  
 														LOG_WARN("Received update message via TCP; updates should be sent via UDP"); break;
@@ -177,8 +189,41 @@ void ServerApplication::SimulateGameObjects(float dt)
 			}
 		}
 
-		if (hitBlock || projectile->position.x - PROJECTILE_RADIUS < 0 || projectile->position.x + PROJECTILE_RADIUS > WORLD_MAX_X
-					 || projectile->position.y - PROJECTILE_RADIUS < 0 || projectile->position.y + PROJECTILE_RADIUS > WORLD_MAX_Y)
+		// check if this projectile has hit a player
+		bool hitPlayer = false;
+		for (auto client : m_Clients)
+		{
+			auto player = client->GetPlayerState();
+			if (PlayerProjectileCollision(&player, projectile))
+			{
+				if (player.team != projectile->team)
+				{
+					hitPlayer = true;
+
+					// kill player
+
+					// move turf line
+					m_TurfLine += BLOCK_SIZE * (projectile->team == PlayerTeam::Red ? 1 : - 1);
+					// check win condition
+					if (false)
+					{
+						// game over - a team won
+					}
+
+					// transmit turf move to all players
+					for (auto c2 : m_Clients)
+					{
+						TurfLineMoveMessage message{ m_TurfLine };
+						c2->SendMessageTcp(MessageCode::TurfLineMoved, message);
+					}
+				}
+
+				break;
+			}
+		}
+
+		if (hitBlock || hitPlayer || projectile->position.x - PROJECTILE_RADIUS < 0 || projectile->position.x + PROJECTILE_RADIUS > WORLD_MAX_X
+								  || projectile->position.y - PROJECTILE_RADIUS < 0 || projectile->position.y + PROJECTILE_RADIUS > WORLD_MAX_Y)
 		{
 			// projectile is out of bounds
 			DestroyProjectile(projectile);
@@ -187,6 +232,50 @@ void ServerApplication::SimulateGameObjects(float dt)
 		else
 			proj_it++;
 	}
+}
+
+void ServerApplication::UpdateGameState(float dt)
+{
+	m_StateTimer += dt;
+
+	if (m_StateTimer > m_StateDuration)
+	{
+		// switch state!
+		m_StateTimer = 0.0f;
+
+		switch (m_GameState)
+		{
+		case GameState::Invalid:
+			LOG_ERROR("Invalid game state"); break;
+		case GameState::FightMode:
+			m_GameState = GameState::BuildMode;
+			m_StateDuration = m_BuildModeDuration;
+			m_FightModeDuration = std::max(0.5f * m_FightModeDuration, MIN_FIGHT_MODE_DURATION);
+
+			break;
+		case GameState::BuildMode:
+			m_GameState = GameState::FightMode;
+			m_StateDuration = m_FightModeDuration;
+			m_BuildModeDuration = std::max(0.5f * m_BuildModeDuration, MIN_BUILD_MODE_DURATION);
+
+			break;
+		default:
+			LOG_ERROR("Unknown game state"); break;
+		}
+
+		// kill all projectiles
+		for (auto projectile : m_Projectiles)
+			delete projectile;
+		m_Projectiles.clear();
+
+		// tell all clients
+		for (auto client : m_Clients)
+		{
+			ChangeGameStateMessage message{ m_GameState, m_StateDuration };
+			client->SendMessageTcp(MessageCode::ChangeGameState, message);
+		}
+	}
+
 }
 
 void ServerApplication::DestroyProjectile(ProjectileState* projectile)
@@ -219,7 +308,6 @@ void ServerApplication::ProcessConnect()
 	m_NewConnection->OnTcpConnected(newClientID);
 
 	// tell the client their ID
-	MessageHeader connectHeader{ newClientID, MessageCode::Connect };
 	ConnectMessage connectMessage;
 
 	// assign their team
@@ -253,22 +341,17 @@ void ServerApplication::ProcessConnect()
 		connectMessage.blockXs[i] = m_Blocks[i]->position.x;
 		connectMessage.blockYs[i] = m_Blocks[i]->position.y;
 	}
+	connectMessage.gameState = m_GameState;
+	connectMessage.remainingStateDuration = m_StateDuration - m_StateTimer;
+	connectMessage.turfLine = m_TurfLine;
 
-	sf::Packet connectPacket;
-	connectPacket << connectHeader;
-	connectPacket << connectMessage;
-	m_NewConnection->SendPacketTcp(connectPacket);
+	m_NewConnection->SendMessageTcp(MessageCode::Connect, connectMessage);
 
 	// tell all other clients a new player has connected
 	for (auto& c : m_Clients)
 	{
-		MessageHeader playerConnectedHeader{ c->GetID(), MessageCode::PlayerConnected };
-
 		PlayerConnectedMessage playerConnectedMessage{ newClientID, state.team };
-
-		sf::Packet playerConnectedPacket;
-		playerConnectedPacket << playerConnectedHeader << playerConnectedMessage;
-		c->SendPacketTcp(playerConnectedPacket);
+		c->SendMessageTcp(MessageCode::PlayerConnected, playerConnectedMessage);
 	}
 
 	m_Clients.push_back(m_NewConnection);
@@ -288,12 +371,8 @@ void ServerApplication::ProcessIntroduction(Connection* client, const MessageHea
 
 void ServerApplication::ProcessDisconnect(Connection* client, const MessageHeader& header, sf::Packet& packet)
 {
-	MessageHeader h{ client->GetID(), MessageCode::Disconnect };
-	sf::Packet response;
-	response << h;
-
 	// acknowledge the clients requests to disconnect
-	client->SendPacketTcp(response);
+	client->SendMessageTcp(MessageCode::Disconnect);
 
 	m_NextClientID.push(client->GetID());
 	if (client->GetPlayerState().team == PlayerTeam::Red)
@@ -312,12 +391,8 @@ void ServerApplication::ProcessDisconnect(Connection* client, const MessageHeade
 	// tell all other players a player disconnected
 	for (auto& c : m_Clients)
 	{
-		MessageHeader playerDisconnectedHeader{ c->GetID(), MessageCode::PlayerDisconnected };
 		PlayerDisconnectedMessage playerDisconnectedMessage{ client->GetID() };
-
-		sf::Packet playerDisconnectedPacket;
-		playerDisconnectedPacket << playerDisconnectedHeader << playerDisconnectedMessage;
-		c->SendPacketTcp(playerDisconnectedPacket);
+		c->SendMessageTcp(MessageCode::PlayerDisconnected, playerDisconnectedMessage);
 	}
 
 	// finally delete the client
@@ -388,17 +463,23 @@ void ServerApplication::ProcessShootRequest(Connection* client, const MessageHea
 	packet >> shootMessage;
 
 	// check if the projectile can be spawned
-	// assume yes for now
+	if (VerifyProjecitleShoot({ shootMessage.x, shootMessage.y }, client->GetPlayerState()))
+	{
+		// create new projectile object
+		shootMessage.id = NextProjectileID();
 
-	// create new projectile object
-	shootMessage.id = NextProjectileID();
-	
-	ProjectileState* newProjectile = new ProjectileState(shootMessage);
-	m_Projectiles.push_back(newProjectile);
+		ProjectileState* newProjectile = new ProjectileState(shootMessage);
+		m_Projectiles.push_back(newProjectile);
 
-	// tell all clients a projectile has been shot
-	for (auto c : m_Clients)
-		c->SendMessageTcp(MessageCode::Shoot, shootMessage);
+		// tell all clients a projectile has been shot
+		for (auto c : m_Clients)
+			c->SendMessageTcp(MessageCode::Shoot, shootMessage);
+	}
+	else
+	{
+		// tell the player their request has been denied
+		client->SendMessageTcp(MessageCode::ShootRequestDenied);
+	}
 }
 
 void ServerApplication::ProcessPlaceRequest(Connection* client, const MessageHeader& header, sf::Packet& packet)
@@ -407,15 +488,22 @@ void ServerApplication::ProcessPlaceRequest(Connection* client, const MessageHea
 	packet >> placeMessage;
 
 	// check if block can be placed
-	
-	// create new block
-	placeMessage.id = NextBlockID();
-	
-	BlockState* newBlock = new BlockState(placeMessage);
-	m_Blocks.push_back(newBlock);
+	if (VerifyBlockPlacement({ placeMessage.x, placeMessage.y }, client->GetPlayerState()))
+	{
+		// create new block
+		placeMessage.id = NextBlockID();
+		
+		BlockState* newBlock = new BlockState(placeMessage);
+		m_Blocks.push_back(newBlock);
 
-	for (auto c : m_Clients)
-		c->SendMessageTcp(MessageCode::Place, placeMessage);
+		for (auto c : m_Clients)
+			c->SendMessageTcp(MessageCode::Place, placeMessage);
+	}
+	else
+	{
+		// tell the player their block place request has been rejected
+		client->SendMessageTcp(MessageCode::PlaceRequestDenied);
+	}
 }
 
 
@@ -443,4 +531,35 @@ ProjectileID ServerApplication::NextProjectileID()
 BlockID ServerApplication::NextBlockID()
 {
 	return m_NextBlockID++;
+}
+
+bool ServerApplication::VerifyProjecitleShoot(const sf::Vector2f& position, const PlayerState& player)
+{
+	// is the game not in fight mode
+	if (m_GameState != GameState::FightMode) return false;
+
+	return true;
+}
+
+bool ServerApplication::VerifyBlockPlacement(const sf::Vector2f& position, const PlayerState& player)
+{
+	// is the game not in build mode
+	if (m_GameState != GameState::BuildMode) return false;
+	// is the player close enough to the place position
+	if (Length(position - player.position) > BLOCK_PLACE_RADIUS) return false;
+	// is the block on the players own turf
+	if (!OnTeamTurf(position, player.team)) return false;
+	// is the block on top of any other players
+	for (auto c : m_Clients)
+		if (Length(position - c->GetPlayerState().position) < PLAYER_SIZE) return false;
+	// is the block on top of any other blocks
+	for (auto b : m_Blocks)
+		if (position == b->position) return false;
+
+	return true;
+}
+
+bool ServerApplication::OnTeamTurf(const sf::Vector2f& p, PlayerTeam team)
+{
+	return true;
 }

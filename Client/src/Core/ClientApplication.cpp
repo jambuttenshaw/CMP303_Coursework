@@ -20,21 +20,16 @@ ClientApplication::ClientApplication()
     
     m_Player.setPosition(0.5f * m_Window.getSize().x, 0.5f * m_Window.getSize().y);
 
-    m_TurfLine = m_Window.getSize().x * 0.5f;
-
     m_RedBackground.setFillColor(LightRedTeamColor);
-    m_RedBackground.setSize(sf::Vector2f{ m_TurfLine, static_cast<float>(m_Window.getSize().y) });
-
     m_BlueBackground.setFillColor(LightBlueTeamColor);
-    m_BlueBackground.setSize(sf::Vector2f{ m_TurfLine, static_cast<float>(m_Window.getSize().y) });
-    m_BlueBackground.setPosition({ m_TurfLine, 0 });
 
+    ChangeTurfLine(0.5f * (WORLD_MAX_X - WORLD_MIN_X));
 
     m_GhostBlock = new Block(INVALID_BLOCK_ID, m_Player.GetTeam(), { 0, 0 });
     m_GhostBlock->setFillColor(GetGhostBlockColour(m_Player.GetTeam(), true));
 
     // setup network system
-    m_NetworkSystem.Init(&m_Player, &m_NetworkPlayers, &m_Projectiles, &m_Blocks);
+    m_NetworkSystem.Init(&m_Player, &m_NetworkPlayers, &m_Projectiles, &m_Blocks, &m_GameState, [this](float turfLine) { this->ChangeTurfLine(turfLine); });
 }
 
 ClientApplication::~ClientApplication()
@@ -193,6 +188,9 @@ void ClientApplication::Update(float dt)
 
 void ClientApplication::Render()
 {
+    // fill with spawn colour
+    m_Window.clear(DarkNoTeamColor);
+
     m_Window.draw(m_RedBackground);
     m_Window.draw(m_BlueBackground);
 
@@ -222,19 +220,12 @@ void ClientApplication::GUI()
     m_NetworkSystem.GUI();
 
     ImGui::Separator();
-    if (ImGui::Button("Toggle Gamemode"))
-    {
-        if (m_GameState == GameState::BuildMode)
-            m_GameState = GameState::FightMode;
-        else if (m_GameState == GameState::FightMode)
-            m_GameState = GameState::BuildMode;
-    }
 }
 
 
 bool ClientApplication::CanPlaceBlock()
 {
-    if (Length(m_GhostBlock->getPosition() - m_Player.getPosition()) > m_BlockPlaceRadius) return false;
+    if (Length(m_GhostBlock->getPosition() - m_Player.getPosition()) > BLOCK_PLACE_RADIUS) return false;
     if (!OnTeamTurf(m_GhostBlock->getPosition(), m_Player.GetTeam())) return false;
     if (m_GhostBlock->getGlobalBounds().intersects(m_Player.getGlobalBounds())) return false;
 
@@ -248,13 +239,28 @@ bool ClientApplication::CanPlaceBlock()
 
 void ClientApplication::PlaceBlock()
 {
-    m_NetworkSystem.RequestPlaceBlock(m_GhostBlock->getPosition());
+    if (m_GhostBlock->getPosition() != m_LastPlaceLocation)
+    {
+        m_NetworkSystem.RequestPlaceBlock(m_GhostBlock->getPosition());
+        m_LastPlaceLocation = m_GhostBlock->getPosition();
+    }
 }
 
 void ClientApplication::TryFireProjectile()
 {
     float dir = m_Player.getRotation();
     m_NetworkSystem.RequestShoot(m_Player.getPosition(), { cosf(DegToRad(dir)), sinf(DegToRad(dir)) });
+}
+
+void ClientApplication::ChangeTurfLine(float turfLine)
+{
+    m_TurfLine = turfLine;
+
+    m_RedBackground.setSize(sf::Vector2f{ m_TurfLine - SPAWN_WIDTH, WORLD_MAX_Y - WORLD_MIN_Y });
+    m_RedBackground.setPosition({ WORLD_MIN_X + SPAWN_WIDTH, WORLD_MIN_Y });
+
+    m_BlueBackground.setSize(sf::Vector2f{ WORLD_MAX_X - WORLD_MIN_X - m_TurfLine - SPAWN_WIDTH, WORLD_MAX_Y - WORLD_MIN_Y });
+    m_BlueBackground.setPosition({ WORLD_MIN_X + m_TurfLine, WORLD_MIN_Y });
 }
 
 bool ClientApplication::OnTeamTurf(const sf::Vector2f& pos, PlayerTeam team) const

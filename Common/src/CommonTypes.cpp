@@ -28,3 +28,22 @@ sf::Packet& operator >>(sf::Packet& packet, GameState& state)
 	state = static_cast<GameState>(state_int);
 	return packet;
 }
+
+const char* GameStateToStr(GameState s)
+{
+	switch (s)
+	{
+	case GameState::Invalid:
+		return "Invalid";
+		break;
+	case GameState::FightMode:
+		return "Fight Mode";
+		break;
+	case GameState::BuildMode:
+		return "Build Mode";
+		break;
+	default:
+		return "Unknown";
+		break;
+	}
+}

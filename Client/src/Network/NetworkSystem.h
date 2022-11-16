@@ -7,6 +7,7 @@
 #include "GameObjects/ControllablePlayer.h"
 
 #include <vector>
+#include <functional>
 
 class ControllablePlayer;
 class NetworkPlayer;
@@ -30,7 +31,9 @@ public:
 	void Init(	ControllablePlayer* player,
 				std::vector<NetworkPlayer*>* networkPlayers,
 				std::vector<Projectile*>* projectiles,
-				std::vector<Block*>* blocks);
+				std::vector<Block*>* blocks,
+				GameState* gameState,
+				std::function<void(float)> changeTurfLineFunc);
 	void GUI();
 	void Update(float dt);
 
@@ -66,6 +69,8 @@ private:
 	void OnProjectilesDestroyed(const MessageHeader& header, sf::Packet& packet);
 	void OnPlace(const MessageHeader& header, sf::Packet& packet);
 	void OnBlocksDestroyed(const MessageHeader& header, sf::Packet& packet);
+	void OnChangeGameState(const MessageHeader& header, sf::Packet& packet);
+	void OnTurfLineMoved(const MessageHeader& header, sf::Packet& packet);
 
 	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode }; }
 
@@ -84,9 +89,13 @@ private:
 
 	float m_UpdateTimer = 0.0f;
 
+	float m_RemainingGameStateDuration = 0.0f;
+
 	// pointers to game objects and game object containers
 	ControllablePlayer* m_Player = nullptr;
 	std::vector<NetworkPlayer*>* m_NetworkPlayers = nullptr;
 	std::vector<Projectile*>* m_Projectiles = nullptr;
 	std::vector<Block*>* m_Blocks = nullptr;
+	GameState* m_GameState = nullptr;
+	std::function<void(float)> m_ChangeTurfLineFunc;
 };

@@ -36,3 +36,12 @@ void Connection::SendPacketTcp(sf::Packet& packet)
 	if (status != sf::Socket::Done)
 		LOG_ERROR("Error sending packet to client!");
 }
+
+void Connection::SendMessageTcp(MessageCode code)
+{
+	sf::Packet packet;
+	MessageHeader header{ m_ID, code };
+	packet << header;
+
+	SendPacketTcp(packet);
+}

@@ -24,12 +24,16 @@ NetworkSystem::~NetworkSystem()
 void NetworkSystem::Init(ControllablePlayer* player,
 	std::vector<NetworkPlayer*>* networkPlayers,
 	std::vector<Projectile*>* projectiles,
-	std::vector<Block*>* blocks)
+	std::vector<Block*>* blocks,
+	GameState* gameState,
+	std::function<void(float)> changeTurfLineFunc)
 {
 	m_Player = player;
 	m_NetworkPlayers = networkPlayers;
 	m_Projectiles = projectiles;
 	m_Blocks = blocks;
+	m_GameState = gameState;
+	m_ChangeTurfLineFunc = changeTurfLineFunc;
 }
 
 void NetworkSystem::GUI()
@@ -41,6 +45,10 @@ void NetworkSystem::GUI()
 		if (ImGui::Button("Disconnect")) Disconnect();
 		ImGui::Text("Client ID: %d", m_ClientID);
 		ImGui::Text("Connected Players: %d", m_NetworkPlayers->size() + 1);
+
+		ImGui::Separator();
+		ImGui::Text("Game State: %s", GameStateToStr(*m_GameState));
+		ImGui::Text("Remaining State Duration: %0.1f", m_RemainingGameStateDuration);
 
 		ImGui::Separator();
 		if (ImGui::Button("Change Team")) RequestChangeTeam();
@@ -61,6 +69,11 @@ void NetworkSystem::Update(float dt)
 		ProcessIncomingUdp();
 		ProcessOutgoingUdp(dt);
 		ProcessIncomingTcp();
+
+		if (m_RemainingGameStateDuration > 0.0f)
+			m_RemainingGameStateDuration -= dt;
+		else
+			m_RemainingGameStateDuration = 0.0f;
 	}
 	else if (m_ConnectionState == ConnectionState::Connecting)
 	{
@@ -265,6 +278,10 @@ void NetworkSystem::ProcessIncomingTcp()
 		case MessageCode::ProjectilesDestroyed:	OnProjectilesDestroyed(header, packet); break;
 		case MessageCode::Place:				OnPlace(header, packet); break;
 		case MessageCode::BlocksDestroyed:		OnBlocksDestroyed(header, packet); break;
+		case MessageCode::ChangeGameState:		OnChangeGameState(header, packet); break;
+		case MessageCode::TurfLineMoved:		OnTurfLineMoved(header, packet); break;
+		case MessageCode::ShootRequestDenied:	LOG_TRACE("Shoot request denied"); break;
+		case MessageCode::PlaceRequestDenied:	LOG_TRACE("Place request denied"); break;
 		default:								LOG_WARN("Recieved unexpected message code"); break;
 		}
 
@@ -303,26 +320,30 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 	m_ConnectionState = ConnectionState::Connected;
 	m_ClientID = header.clientID;
 
-	ConnectMessage messageBody;
-	packet >> messageBody;
+	ConnectMessage connectMessage;
+	packet >> connectMessage;
 
 	LOG_INFO("Connected with ID {}", static_cast<int>(m_ClientID));
-	LOG_INFO("There are {} other players already connected", messageBody.numPlayers);
+	LOG_INFO("There are {} other players already connected", connectMessage.numPlayers);
 
-	m_Player->SetTeam(messageBody.team);
+	m_Player->SetTeam(connectMessage.team);
 
-	for (auto i = 0; i < messageBody.numPlayers; i++)
+	for (auto i = 0; i < connectMessage.numPlayers; i++)
 	{
-		NetworkPlayer* newPlayer = new NetworkPlayer(messageBody.playerIDs[i]);
-		newPlayer->SetTeam(messageBody.playerTeams[i]);
+		NetworkPlayer* newPlayer = new NetworkPlayer(connectMessage.playerIDs[i]);
+		newPlayer->SetTeam(connectMessage.playerTeams[i]);
 		m_NetworkPlayers->push_back(newPlayer);
 	}
 
-	for (auto i = 0; i < messageBody.numBlocks; i++)
+	for (auto i = 0; i < connectMessage.numBlocks; i++)
 	{
-		Block* newBlock = new Block(messageBody.blockIDs[i], messageBody.blockTeams[i], { messageBody.blockXs[i] , messageBody.blockYs[i] });
+		Block* newBlock = new Block(connectMessage.blockIDs[i], connectMessage.blockTeams[i], { connectMessage.blockXs[i] , connectMessage.blockYs[i] });
 		m_Blocks->push_back(newBlock);
 	}
+
+	*m_GameState = connectMessage.gameState;
+	m_RemainingGameStateDuration = connectMessage.remainingStateDuration;
+	m_ChangeTurfLineFunc(connectMessage.turfLine);
 
 	// introduce client to server
 	
@@ -492,6 +513,28 @@ void NetworkSystem::OnBlocksDestroyed(const MessageHeader& header, sf::Packet& p
 		if (!blockDestroyed)
 			it++;
 	}
+}
+
+void NetworkSystem::OnChangeGameState(const MessageHeader& header, sf::Packet& packet)
+{
+	ChangeGameStateMessage message;
+	packet >> message;
+
+	*m_GameState = message.state;
+	m_RemainingGameStateDuration = message.stateDuration;
+
+	// delete all projectiles
+	for (auto projectile : *m_Projectiles)
+		delete projectile;
+	m_Projectiles->clear();
+}
+
+void NetworkSystem::OnTurfLineMoved(const MessageHeader& header, sf::Packet& packet)
+{
+	TurfLineMoveMessage message;
+	packet >> message;
+
+	m_ChangeTurfLineFunc(message.newTurfLine);
 }
 
 #pragma endregion

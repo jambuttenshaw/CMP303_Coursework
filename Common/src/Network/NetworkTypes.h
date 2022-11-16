@@ -20,6 +20,8 @@ enum class MessageCode : sf::Uint8
 	
 	Update,					// Send player position/rotation update (C<->S)
 	ChangeTeam,				// Announce a player wants to/has changed team (C<->S)
+	ChangeGameState,		// Announce a change in game state (S->C)
+	TurfLineMoved,			// Announce the turf line has moved (S->C)
 	
 	Shoot,					// Request to shoot/Announce a projectile has been shot (S<->C)
 	ShootRequestDenied,		// Announce a clients request to shoot a projectile has been denied (S->C)
@@ -64,6 +66,12 @@ struct ConnectMessage
 	PlayerTeam blockTeams[MAX_NUM_BLOCKS];
 	float blockXs[MAX_NUM_BLOCKS];
 	float blockYs[MAX_NUM_BLOCKS];
+
+	// info about the game state
+	GameState gameState;
+	float remainingStateDuration;
+
+	float turfLine;
 };
 sf::Packet& operator <<(sf::Packet& packet, const ConnectMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ConnectMessage& message);
@@ -154,6 +162,21 @@ struct BlocksDestroyedMessage
 sf::Packet& operator <<(sf::Packet& packet, const BlocksDestroyedMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, BlocksDestroyedMessage& message);
 
+struct ChangeGameStateMessage
+{
+	GameState state;
+	float stateDuration;
+};
+sf::Packet& operator <<(sf::Packet& packet, const ChangeGameStateMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, ChangeGameStateMessage& message);
+
+struct TurfLineMoveMessage
+{
+	float newTurfLine;
+};
+sf::Packet& operator <<(sf::Packet& packet, const TurfLineMoveMessage& message);
+sf::Packet& operator >>(sf::Packet& packet, TurfLineMoveMessage& message);
+
 
 // NETWORK REPRESENTATIONS OF GAME OBJECTS
 struct PlayerState
@@ -210,3 +233,4 @@ struct BlockState
 
 
 bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile);
+bool PlayerProjectileCollision(PlayerState* player, ProjectileState* projectile);
