@@ -280,8 +280,9 @@ void NetworkSystem::ProcessIncomingTcp()
 		case MessageCode::BlocksDestroyed:		OnBlocksDestroyed(header, packet); break;
 		case MessageCode::ChangeGameState:		OnChangeGameState(header, packet); break;
 		case MessageCode::TurfLineMoved:		OnTurfLineMoved(header, packet); break;
-		case MessageCode::ShootRequestDenied:	LOG_TRACE("Shoot request denied"); break;
-		case MessageCode::PlaceRequestDenied:	LOG_TRACE("Place request denied"); break;
+		case MessageCode::PlayerDeath:			OnPlayerDeath(header, packet); break;
+		case MessageCode::ShootRequestDenied:	break;
+		case MessageCode::PlaceRequestDenied:	break;
 		default:								LOG_WARN("Recieved unexpected message code"); break;
 		}
 
@@ -327,6 +328,7 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 	LOG_INFO("There are {} other players already connected", connectMessage.numPlayers);
 
 	m_Player->SetTeam(connectMessage.team);
+	GoToSpawn();
 
 	for (auto i = 0; i < connectMessage.numPlayers; i++)
 	{
@@ -431,6 +433,7 @@ void NetworkSystem::OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& 
 	if (messageBody.playerID == m_ClientID)
 	{
 		m_Player->SetTeam(messageBody.team);
+		GoToSpawn();
 	}
 	else
 	{
@@ -537,6 +540,11 @@ void NetworkSystem::OnTurfLineMoved(const MessageHeader& header, sf::Packet& pac
 	m_ChangeTurfLineFunc(message.newTurfLine);
 }
 
+void NetworkSystem::OnPlayerDeath(const MessageHeader& header, sf::Packet&)
+{
+	GoToSpawn();
+}
+
 #pragma endregion
 
 #pragma region Utility
@@ -549,4 +557,13 @@ NetworkPlayer* NetworkSystem::FindNetworkPlayerWithID(ClientID id)
 	}
 	return nullptr;
 }
+
+void NetworkSystem::GoToSpawn()
+{
+	if (m_Player->GetTeam() == PlayerTeam::Red)
+		m_Player->setPosition({ 0.5f * SPAWN_WIDTH, 0.5f * WORLD_MAX_Y });
+	else
+		m_Player->setPosition({ WORLD_MAX_X - 0.5f * SPAWN_WIDTH, 0.5f * WORLD_MAX_Y });
+}
+
 #pragma endregion

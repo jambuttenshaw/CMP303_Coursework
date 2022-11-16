@@ -42,6 +42,16 @@ ServerApplication::ServerApplication()
 	case GameState::FightMode:	m_StateDuration = m_FightModeDuration; break;
 	default:					LOG_ERROR("Unknown game state"); break;
 	}
+
+
+	// create the blocks around spawn
+	const int blockCount = 11;
+	for (int i = 0; i < blockCount; i++)
+	{
+		m_Blocks.push_back(new BlockState{ NextBlockID(), PlayerTeam::None, { SPAWN_WIDTH,				 0.5f * WORLD_MAX_Y - (BLOCK_SIZE * (blockCount / 2)) + BLOCK_SIZE * i } });
+		m_Blocks.push_back(new BlockState{ NextBlockID(), PlayerTeam::None, { WORLD_MAX_X - SPAWN_WIDTH, 0.5f * WORLD_MAX_Y - (BLOCK_SIZE * (blockCount / 2)) + BLOCK_SIZE * i } });
+	}
+
 }
 
 ServerApplication::~ServerApplication()
@@ -175,6 +185,8 @@ void ServerApplication::SimulateGameObjects(float dt)
 		for (auto block_it = m_Blocks.begin(); block_it != m_Blocks.end(); block_it++)
 		{
 			auto block = *block_it;
+			if (block->team == PlayerTeam::None) continue;
+
 			if (BlockProjectileCollision(block, projectile))
 			{
 				hitBlock = true;
@@ -201,6 +213,7 @@ void ServerApplication::SimulateGameObjects(float dt)
 					hitPlayer = true;
 
 					// kill player
+					client->SendMessageTcp(MessageCode::PlayerDeath);
 
 					// move turf line
 					m_TurfLine += BLOCK_SIZE * (projectile->team == PlayerTeam::Red ? 1 : - 1);
@@ -216,6 +229,9 @@ void ServerApplication::SimulateGameObjects(float dt)
 						TurfLineMoveMessage message{ m_TurfLine };
 						c2->SendMessageTcp(MessageCode::TurfLineMoved, message);
 					}
+
+					// moving the turf line may destroy a bunch of blocks
+					CheckForBlocksAcrossTurfLine();
 				}
 
 				break;
@@ -250,13 +266,13 @@ void ServerApplication::UpdateGameState(float dt)
 		case GameState::FightMode:
 			m_GameState = GameState::BuildMode;
 			m_StateDuration = m_BuildModeDuration;
-			m_FightModeDuration = std::max(0.5f * m_FightModeDuration, MIN_FIGHT_MODE_DURATION);
+			m_FightModeDuration = std::max(m_FightModeDuration - 10.0f, MIN_FIGHT_MODE_DURATION);
 
 			break;
 		case GameState::BuildMode:
 			m_GameState = GameState::FightMode;
 			m_StateDuration = m_FightModeDuration;
-			m_BuildModeDuration = std::max(0.5f * m_BuildModeDuration, MIN_BUILD_MODE_DURATION);
+			m_BuildModeDuration = std::max(m_BuildModeDuration - 10.0f, MIN_BUILD_MODE_DURATION);
 
 			break;
 		default:
@@ -561,5 +577,40 @@ bool ServerApplication::VerifyBlockPlacement(const sf::Vector2f& position, const
 
 bool ServerApplication::OnTeamTurf(const sf::Vector2f& p, PlayerTeam team)
 {
-	return true;
+	switch (team)
+	{
+	case PlayerTeam::None:	return true; // always allow team-less blocks (because theyll be server spawned)
+	case PlayerTeam::Red:	return p.x < m_TurfLine && p.x > SPAWN_WIDTH;
+	case PlayerTeam::Blue:	return p.x > m_TurfLine && p.x < WORLD_MAX_X - SPAWN_WIDTH;
+	default:				return false;
+	}
+
+	return false;
+}
+
+void ServerApplication::CheckForBlocksAcrossTurfLine()
+{
+	BlocksDestroyedMessage blocksDestroyedMessage;
+	blocksDestroyedMessage.count = 0;
+
+	for (auto it = m_Blocks.begin(); it != m_Blocks.end();)
+	{
+		auto block = *it;
+
+		if (!OnTeamTurf(block->position, block->team))
+		{
+			blocksDestroyedMessage.ids[blocksDestroyedMessage.count++] = block->id;
+			
+			delete block;
+			it = m_Blocks.erase(it);
+		}
+		else
+			it++;
+	}
+
+	if (blocksDestroyedMessage.count > 0)
+	{
+		for (auto client : m_Clients)
+			client->SendMessageTcp(MessageCode::BlocksDestroyed, blocksDestroyedMessage);
+	}
 }

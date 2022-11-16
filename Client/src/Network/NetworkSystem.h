@@ -71,10 +71,13 @@ private:
 	void OnBlocksDestroyed(const MessageHeader& header, sf::Packet& packet);
 	void OnChangeGameState(const MessageHeader& header, sf::Packet& packet);
 	void OnTurfLineMoved(const MessageHeader& header, sf::Packet& packet);
+	void OnPlayerDeath(const MessageHeader& header, sf::Packet&);
 
 	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode }; }
 
 	NetworkPlayer* FindNetworkPlayerWithID(ClientID id);
+
+	void GoToSpawn();
 
 private:
 	sf::TcpSocket m_TcpSocket;

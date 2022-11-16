@@ -61,6 +61,8 @@ private:
 	bool VerifyBlockPlacement(const sf::Vector2f& position, const PlayerState& player);
 
 	bool OnTeamTurf(const sf::Vector2f& p, PlayerTeam team);
+	
+	void CheckForBlocksAcrossTurfLine();
 
 private:
 	sf::TcpListener m_ListenSocket;

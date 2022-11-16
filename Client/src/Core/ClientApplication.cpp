@@ -143,6 +143,27 @@ void ClientApplication::HandleInput(float dt)
         }
     }
 
+    if (m_GameState == GameState::BuildMode)
+    {
+        // dont allow the player to cross the middle in build mode
+        if (m_Player.GetTeam() == PlayerTeam::Red)
+        {
+            if (newPos.x + 0.5f * PLAYER_SIZE > m_TurfLine)
+            {
+                newPos.x = m_TurfLine - 0.5f * PLAYER_SIZE;
+                m_Player.setPosition(newPos);
+            }
+        }
+        else
+        {
+            if (newPos.x - 0.5f * PLAYER_SIZE < m_TurfLine)
+            {
+                newPos.x = m_TurfLine + 0.5f * PLAYER_SIZE;
+                m_Player.setPosition(newPos);
+            }
+        }
+    }
+
     m_Player.UpdateRotation();
 
 
@@ -256,11 +277,11 @@ void ClientApplication::ChangeTurfLine(float turfLine)
 {
     m_TurfLine = turfLine;
 
-    m_RedBackground.setSize(sf::Vector2f{ m_TurfLine - SPAWN_WIDTH, WORLD_MAX_Y - WORLD_MIN_Y });
+    m_RedBackground.setSize(sf::Vector2f{ m_TurfLine - SPAWN_WIDTH - 0.f * BLOCK_SIZE, WORLD_MAX_Y - WORLD_MIN_Y });
     m_RedBackground.setPosition({ WORLD_MIN_X + SPAWN_WIDTH, WORLD_MIN_Y });
 
-    m_BlueBackground.setSize(sf::Vector2f{ WORLD_MAX_X - WORLD_MIN_X - m_TurfLine - SPAWN_WIDTH, WORLD_MAX_Y - WORLD_MIN_Y });
-    m_BlueBackground.setPosition({ WORLD_MIN_X + m_TurfLine, WORLD_MIN_Y });
+    m_BlueBackground.setSize(sf::Vector2f{ WORLD_MAX_X - WORLD_MIN_X - m_TurfLine - SPAWN_WIDTH - 0.f * BLOCK_SIZE, WORLD_MAX_Y - WORLD_MIN_Y });
+    m_BlueBackground.setPosition({ WORLD_MIN_X + m_TurfLine + 0.f * BLOCK_SIZE, WORLD_MIN_Y });
 }
 
 bool ClientApplication::OnTeamTurf(const sf::Vector2f& pos, PlayerTeam team) const
@@ -268,8 +289,8 @@ bool ClientApplication::OnTeamTurf(const sf::Vector2f& pos, PlayerTeam team) con
     switch (team)
     {
     case PlayerTeam::None: return false;
-    case PlayerTeam::Red:  return pos.x < m_TurfLine;
-    case PlayerTeam::Blue: return pos.x > m_TurfLine;
+    case PlayerTeam::Red:  return pos.x < m_TurfLine && pos.x > SPAWN_WIDTH;
+    case PlayerTeam::Blue: return pos.x > m_TurfLine && pos.x < WORLD_MAX_X - SPAWN_WIDTH;
     }
     return false;
 }

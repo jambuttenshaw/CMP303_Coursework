@@ -229,6 +229,12 @@ struct BlockState
 		team = placeMessage.team;
 		position = { placeMessage.x, placeMessage.y };
 	}
+	BlockState(BlockID _id, PlayerTeam _team, const sf::Vector2f& _position)
+	{
+		id = _id;
+		team = _team;
+		position = _position;
+	}
 };
 
 
