@@ -8,6 +8,8 @@ class PlayerIndicator : public sf::ConvexShape
 public:
 	PlayerIndicator();
 	virtual ~PlayerIndicator() = default;
+	
+	void Update();
 
 	inline sf::Vector2f GetDimensions() const { return { m_Size, m_Size }; }
 

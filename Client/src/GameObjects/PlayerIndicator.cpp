@@ -17,3 +17,12 @@ PlayerIndicator::PlayerIndicator()
 
 	setOrigin(0.0f, m_Offset);
 }
+
+void PlayerIndicator::Update()
+{
+	auto pos = getPosition();
+	if (pos.y - (m_Offset + m_Size) < 0)
+		setScale(1.0f, -1.0f);
+	else
+		setScale(1.0f, 1.0f);
+}

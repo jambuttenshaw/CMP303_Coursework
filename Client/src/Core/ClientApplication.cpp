@@ -158,7 +158,7 @@ void ClientApplication::HandleInput(float dt)
     if (newPos.x + 0.5f * PLAYER_SIZE < 0.0f)
         newPos.x = 0.5f * PLAYER_SIZE;
 
-    if (newPos.y - 0.5f * PLAYER_SIZE > WORLD_HEIGHT)
+    if (newPos.y + 0.5f * PLAYER_SIZE > WORLD_HEIGHT)
         newPos.y = WORLD_HEIGHT - 0.5f * PLAYER_SIZE;
     if (newPos.y - 0.5f * PLAYER_SIZE < 0.0f)
         newPos.y = 0.5f * PLAYER_SIZE;
@@ -211,6 +211,7 @@ void ClientApplication::HandleInput(float dt)
 void ClientApplication::Update(float dt)
 {
     m_Indicator.setPosition(m_Player.getPosition());
+    m_Indicator.Update();
 
     // update projectiles
     for (auto projectile : m_Projectiles)
