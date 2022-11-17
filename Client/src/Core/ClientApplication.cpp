@@ -237,7 +237,10 @@ void ClientApplication::Render()
         m_Window.draw(*projectile);
 
     for (auto player : m_NetworkPlayers)
+    {
         m_Window.draw(*player);
+        //player->RenderDebugLines(m_Window);
+    }
 
     m_Window.draw(m_Player);
     m_Window.draw(m_Indicator);

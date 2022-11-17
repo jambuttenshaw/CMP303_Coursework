@@ -5,7 +5,7 @@
 const unsigned short SERVER_PORT = 4444;
 
 const float IDLE_TIMEOUT = 10.0f; // 10 second idle timout
-const float UPDATE_FREQUENCY = 0.1f; // update ticks every 0.1s
+const float UPDATE_FREQUENCY = 0.05f; // update ticks 20 times a second
 
 // world bounds
 const float WORLD_WIDTH = 900.0f;

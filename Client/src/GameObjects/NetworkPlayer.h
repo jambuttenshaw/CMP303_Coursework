@@ -24,6 +24,8 @@ public:
 	void Update(float dt);
 	void NetworkUpdate(const UpdateMessage& data, float timestamp);
 
+	void RenderDebugLines(sf::RenderWindow& window);
+
 private:
 
 	sf::Vector2f PredictPosition(const StateRecord& state0, const StateRecord& state1, float currentSimTime);
@@ -35,4 +37,8 @@ private:
 
 	const size_t m_StateRecordDepth = 3;
 	std::deque<StateRecord> m_StateQueue;
+
+	// debug lines
+	sf::VertexArray m_DebugLines;
+	float m_CurrentSimulationTime = 0.0f;
 };

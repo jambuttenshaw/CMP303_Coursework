@@ -5,8 +5,11 @@
 
 
 NetworkPlayer::NetworkPlayer(ClientID clientID)
-	: m_ClientID(clientID)
+	: m_ClientID(clientID), m_DebugLines(sf::LinesStrip, 2)
 {
+	m_DebugLines[0].color = sf::Color::Red;
+	m_DebugLines[1].color = sf::Color::Red;
+	//m_DebugLines[2].color = sf::Color::Red;
 }
 
 NetworkPlayer::~NetworkPlayer()
@@ -15,11 +18,13 @@ NetworkPlayer::~NetworkPlayer()
 
 void NetworkPlayer::Update(float simulationTime)
 {
+	m_CurrentSimulationTime = simulationTime;
 	// predict position
-	if (m_StateQueue.size() >= 2)
+	if (m_StateQueue.size() >= 3)
 	{
 		StateRecord& state0 = m_StateQueue[0];
 		StateRecord& state1 = m_StateQueue[1];
+		StateRecord& state2 = m_StateQueue[2];
 
 		float interpolation = (simulationTime - state0.time) / (m_NextUpdateTime - state0.time);
 
@@ -35,7 +40,11 @@ void NetworkPlayer::Update(float simulationTime)
 		//	state0.position,
 		//	interpolation);
 
-		setPosition(PredictPosition(state0, state1, simulationTime));
+		sf::Vector2f v1 = PredictPosition(state1, state2, simulationTime);
+		sf::Vector2f v2 = PredictPosition(state0, state1, simulationTime);
+		sf::Vector2f lerped = Lerp(v1, v2, interpolation);
+
+		setPosition(lerped);
 
 		setRotation(LerpAngleDegrees(state1.rotation, state0.rotation, interpolation));
 	}
@@ -45,7 +54,7 @@ void NetworkPlayer::NetworkUpdate(const UpdateMessage& data, float timestamp)
 {
 	sf::Vector2f newPos{ data.x, data.y };
 
-	if (m_StateQueue.size() < 2)
+	if (m_StateQueue.size() < 3)
 	{
 		setPosition(newPos);
 		setRotation(data.rotation);
@@ -55,6 +64,18 @@ void NetworkPlayer::NetworkUpdate(const UpdateMessage& data, float timestamp)
 	m_NextUpdateTime = timestamp + UPDATE_FREQUENCY;
 
 	while (m_StateQueue.size() > m_StateRecordDepth) m_StateQueue.pop_back();
+}
+
+void NetworkPlayer::RenderDebugLines(sf::RenderWindow& window)
+{
+	if (m_StateQueue.size() >= 2)
+	{
+		//m_DebugLines[0].position = m_StateQueue[0].position;
+		m_DebugLines[0].position = m_StateQueue[0].position;
+		m_DebugLines[1].position = PredictPosition(m_StateQueue[0], m_StateQueue[1], m_CurrentSimulationTime);
+
+		window.draw(m_DebugLines);
+	}
 }
 
 sf::Vector2f NetworkPlayer::PredictPosition(const StateRecord& state0, const StateRecord& state1, float currentSimTime)
