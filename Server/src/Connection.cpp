@@ -13,9 +13,10 @@ Connection::~Connection()
 	m_Socket.disconnect();
 }
 
-void Connection::OnTcpConnected(ClientID id)
+void Connection::OnTcpConnected(ClientID id, sf::Uint8 playerNum)
 {
 	m_ID = id;
+	m_PlayerNumber = playerNum;
 	m_TcpPort = m_Socket.getLocalPort();
 	m_ClientIP = m_Socket.getRemoteAddress();
 }

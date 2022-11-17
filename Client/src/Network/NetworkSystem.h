@@ -89,7 +89,8 @@ private:
 	sf::UdpSocket m_UdpSocket;
 
 	ConnectionState m_ConnectionState = ConnectionState::Disconnected;
-	sf::Uint8 m_ClientID = INVALID_CLIENT_ID;
+	ClientID m_ClientID = INVALID_CLIENT_ID;
+	sf::Uint8 m_PlayerNumber = -1;
 
 	// time since since simulation began: synchonized with the server
 	float m_SimulationTime = 0.0f;

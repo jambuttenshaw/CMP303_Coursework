@@ -47,7 +47,7 @@ sf::Packet& operator>>(sf::Packet& packet, IntroductionMessage& message)
 
 sf::Packet& operator<<(sf::Packet& packet, const ConnectMessage& message)
 {
-	packet << message.team << message.numPlayers;
+	packet << message.playerNumber << message.team << message.numPlayers;
 	for (unsigned int i = 0; i < message.numPlayers; i++)
 		packet << message.playerIDs[i] << message.playerTeams[i];
 	packet << message.numBlocks;
@@ -59,7 +59,7 @@ sf::Packet& operator<<(sf::Packet& packet, const ConnectMessage& message)
 
 sf::Packet& operator>>(sf::Packet& packet, ConnectMessage& message)
 {
-	packet >> message.team >>  message.numPlayers;
+	packet >> message.playerNumber >> message.team >>  message.numPlayers;
 	for (unsigned int i = 0; i < message.numPlayers; i++)
 		packet >> message.playerIDs[i] >> message.playerTeams[i];
 	packet >> message.numBlocks;

@@ -52,6 +52,7 @@ sf::Packet& operator >>(sf::Packet& packet, MessageHeader& header);
 struct ConnectMessage
 {
 	// info to be given to the newly joining player
+	sf::Uint8 playerNumber;
 	PlayerTeam team;
 	// info about the players already in the game
 	sf::Uint8 numPlayers;

@@ -11,6 +11,7 @@ public:
 
 	sf::TcpSocket& GetSocket() { return m_Socket; }
 	ClientID GetID() const { return m_ID; }
+	sf::Uint8 GetPlayerNumber() const { return m_PlayerNumber; }
 	const sf::IpAddress& GetIP() const { return m_ClientIP; }
 	unsigned short GetTcpPort() const { return m_TcpPort; }
 	unsigned short GetUdpPort() const { return m_UdpPort; }
@@ -22,7 +23,7 @@ public:
 	bool IsReady() const { return m_Ready; }
 	void SetReady(bool ready) { m_Ready = ready; }
 
-	void OnTcpConnected(ClientID id);
+	void OnTcpConnected(ClientID id, sf::Uint8 playerNum);
 	void SetUdpPort(unsigned short clientPort);
 
 	void SendPacketTcp(sf::Packet& packet);
@@ -42,6 +43,8 @@ private:
 
 	// network properties
 	ClientID m_ID = INVALID_CLIENT_ID;
+	sf::Uint8 m_PlayerNumber = -1;
+
 	sf::IpAddress m_ClientIP = sf::IpAddress::None;
 	unsigned short m_TcpPort = -1;
 	unsigned short m_UdpPort = -1;

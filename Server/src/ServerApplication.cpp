@@ -364,12 +364,14 @@ void ServerApplication::DestroyBlock(BlockState* block)
 void ServerApplication::ProcessConnect()
 {
 	ClientID newClientID = NextClientID();
+	sf::Uint8 playerNumber = static_cast<sf::Uint8>(m_Clients.size() + 1);
 
 	// setup connection object
-	m_NewConnection->OnTcpConnected(newClientID);
+	m_NewConnection->OnTcpConnected(newClientID, playerNumber);
 
 	// tell the client their ID
 	ConnectMessage connectMessage;
+	connectMessage.playerNumber = playerNumber;
 
 	// assign their team
 	PlayerState& state = m_NewConnection->GetPlayerState();
@@ -416,7 +418,7 @@ void ServerApplication::ProcessConnect()
 	}
 
 	m_Clients.push_back(m_NewConnection);
-	LOG_INFO("Player connected with ID {}", newClientID);
+	LOG_INFO("[Player Joined] Player: {0} ID: {1} IP: {2} ", m_NewConnection->GetPlayerNumber(), newClientID, m_NewConnection->GetSocket().getRemoteAddress().toString());
 
 	m_NewConnection = new Connection;
 }

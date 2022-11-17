@@ -44,7 +44,7 @@ void NetworkSystem::GUI()
 		ImGui::Separator();
 		if (ImGui::Button("Disconnect")) Disconnect();
 		ImGui::Text("Client ID: %d", m_ClientID);
-		ImGui::Text("Connected Players: %d", m_NetworkPlayers->size() + 1);
+		ImGui::Text("Player Number: %d/%d", m_PlayerNumber, m_NetworkPlayers->size() + 1);
 
 		ImGui::Separator();
 		ImGui::Text("Game State: %s", GameStateToStr(*m_GameState));
@@ -357,9 +357,7 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 	ConnectMessage connectMessage;
 	packet >> connectMessage;
 
-	LOG_INFO("Connected with ID {}", static_cast<int>(m_ClientID));
-	LOG_INFO("There are {} other players already connected", connectMessage.numPlayers);
-
+	m_PlayerNumber = connectMessage.playerNumber;
 	m_Player->SetTeam(connectMessage.team);
 	GoToSpawn();
 
@@ -390,6 +388,10 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 
 	// also request the simulation time
 	SyncSimulationTime();
+
+	LOG_INFO("Connected with ID {}", static_cast<int>(m_ClientID));
+	LOG_INFO("There are {} other players already connected", connectMessage.numPlayers);
+	LOG_INFO("I am player {}", m_PlayerNumber);
 }
 
 
