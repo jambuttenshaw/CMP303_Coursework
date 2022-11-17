@@ -67,8 +67,8 @@ void NetworkSystem::GUI()
 	}
 	else
 	{
-		ImGui::InputText("Server IP:", m_GUIServerIP, 16);
-		ImGui::InputInt("Server Port:", &m_GUIServerPort);
+		ImGui::InputText("Server IP", m_GUIServerIP, 16);
+		ImGui::InputInt("Server Port", &m_GUIServerPort);
 		if (ImGui::Button("Connect"))
 		{
 			m_ServerAddress = sf::IpAddress{ m_GUIServerIP };

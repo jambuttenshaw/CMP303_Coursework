@@ -58,7 +58,8 @@ private:
 	PlayerIndicator m_Indicator;
 	std::vector<NetworkPlayer*> m_NetworkPlayers;
 
-	sf::RectangleShape m_RedBackground, m_BlueBackground;
+	float m_GUIWidth = 300.0f;
+	sf::RectangleShape m_GUIBackground, m_RedBackground, m_BlueBackground;
 	float m_TurfLine = 0.0f;
 
 	std::vector<Projectile*> m_Projectiles;

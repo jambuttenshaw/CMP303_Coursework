@@ -12,7 +12,7 @@
 
 
 ClientApplication::ClientApplication()
-	: m_Window(sf::VideoMode(static_cast<unsigned int >(WORLD_WIDTH), static_cast<unsigned int>(WORLD_HEIGHT)), "CMP303 Client"), m_Player(m_Window)
+	: m_Window(sf::VideoMode(static_cast<unsigned int >(WORLD_WIDTH + 300), static_cast<unsigned int>(WORLD_HEIGHT)), "CMP303 Client"), m_Player(m_Window)
 {
     m_Window.setVerticalSyncEnabled(true);
 
@@ -22,6 +22,10 @@ ClientApplication::ClientApplication()
 
     m_RedBackground.setFillColor(LightRedTeamColor);
     m_BlueBackground.setFillColor(LightBlueTeamColor);
+
+    m_GUIBackground.setFillColor({ 50, 50, 50 });
+    m_GUIBackground.setPosition({ WORLD_WIDTH, 0.0f });
+    m_GUIBackground.setSize({ m_GUIWidth, WORLD_HEIGHT });
 
     ChangeTurfLine(0.5f * WORLD_WIDTH);
 
@@ -97,7 +101,12 @@ void ClientApplication::Run()
         Render();
 
         // gui
+        ImGui::SetNextWindowPos({ WORLD_WIDTH, 0 });
+        ImGui::SetNextWindowSize({ m_GUIWidth, WORLD_HEIGHT });
+
+        ImGui::Begin("GUI");
         GUI();
+        ImGui::End();
         ImGui::SFML::Render(m_Window);
 
         m_Window.display();
@@ -143,26 +152,33 @@ void ClientApplication::HandleInput(float dt)
         }
     }
 
+    // keep player in the world
+    if (newPos.x + 0.5f * PLAYER_SIZE > WORLD_WIDTH)
+        newPos.x = WORLD_WIDTH - 0.5f * PLAYER_SIZE;
+    if (newPos.x + 0.5f * PLAYER_SIZE < 0.0f)
+        newPos.x = 0.5f * PLAYER_SIZE;
+
+    if (newPos.y - 0.5f * PLAYER_SIZE > WORLD_HEIGHT)
+        newPos.y = WORLD_HEIGHT - 0.5f * PLAYER_SIZE;
+    if (newPos.y - 0.5f * PLAYER_SIZE < 0.0f)
+        newPos.y = 0.5f * PLAYER_SIZE;
+
     if (m_GameState == GameState::BuildMode)
     {
         // dont allow the player to cross the middle in build mode
         if (m_Player.GetTeam() == PlayerTeam::Red)
         {
             if (newPos.x + 0.5f * PLAYER_SIZE > m_TurfLine)
-            {
                 newPos.x = m_TurfLine - 0.5f * PLAYER_SIZE;
-                m_Player.setPosition(newPos);
-            }
         }
         else
         {
             if (newPos.x - 0.5f * PLAYER_SIZE < m_TurfLine)
-            {
                 newPos.x = m_TurfLine + 0.5f * PLAYER_SIZE;
-                m_Player.setPosition(newPos);
-            }
         }
     }
+    m_Player.setPosition(newPos);
+
 
     m_Player.UpdateRotation();
 
@@ -211,6 +227,7 @@ void ClientApplication::Render()
 
     m_Window.draw(m_RedBackground);
     m_Window.draw(m_BlueBackground);
+    m_Window.draw(m_GUIBackground);
 
     for (auto block : m_Blocks)
         m_Window.draw(*block);

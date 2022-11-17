@@ -26,7 +26,7 @@ const float BLOCK_SIZE = 20.0f;
 const float BLOCK_PLACE_RADIUS = 50.0f;
 
 // game state changes
-const float INITIAL_BUILD_MODE_DURATION = 5.0f;
+const float INITIAL_BUILD_MODE_DURATION = 40.0f;
 const float INITIAL_FIGHT_MODE_DURATION = 80.0f;
 const float MIN_BUILD_MODE_DURATION = 10.0f;
 const float MIN_FIGHT_MODE_DURATION = 30.0f;
