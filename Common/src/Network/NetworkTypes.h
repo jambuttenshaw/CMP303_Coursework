@@ -28,9 +28,10 @@ enum class MessageCode : sf::Uint8
 	Place,					// Request to place/Announce a block has been placed (S<->C)
 	PlaceRequestDenied,		// Announce a clients request to place a block has been denied (S->C)
 	
+	GameStart,				// Announce player is ready to start/the game has started (S<->C)
 	PlayerDeath,			// Announce a player has died (S->C)
 	ProjectilesDestroyed,	// Announce a projectile has been destroyed (S->C)
-	BlocksDestroyed,			// Announce a block has been destroyed (S->C)
+	BlocksDestroyed,		// Announce a block has been destroyed (S->C)
 	
 	GetServerTime			// Calculate latency between client and server to update clients simulation timer (C<->S)
 };

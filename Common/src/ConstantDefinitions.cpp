@@ -2,19 +2,16 @@
 
 
 // server properties
-const char* const SERVER_ADDRESS = "127.0.0.1";
 const unsigned short SERVER_PORT = 4444;
 
-// update ticks every 100ms
-const float UPDATE_FREQUENCY = 0.1f;
+const float IDLE_TIMEOUT = 10.0f; // 10 second idle timout
+const float UPDATE_FREQUENCY = 0.1f; // update ticks every 0.1s
 
 // world bounds
-const float WORLD_MIN_X = 0.0f;
-const float WORLD_MAX_X = 900.0f;
-const float WORLD_MIN_Y = 0.0f;
-const float WORLD_MAX_Y = 600.0f;
+const float WORLD_WIDTH = 900.0f;
+const float WORLD_HEIGHT = 600.0f;
 
-const float SPAWN_WIDTH = 160.0f;
+const float SPAWN_WIDTH = 170.0f;
 
 // player properties
 const float PLAYER_SIZE = 15.0f;
@@ -29,9 +26,7 @@ const float BLOCK_SIZE = 20.0f;
 const float BLOCK_PLACE_RADIUS = 50.0f;
 
 // game state changes
-const GameState INITIAL_GAME_STATE = GameState::BuildMode;
-
-const float INITIAL_BUILD_MODE_DURATION = 40.0f;
+const float INITIAL_BUILD_MODE_DURATION = 5.0f;
 const float INITIAL_FIGHT_MODE_DURATION = 80.0f;
 const float MIN_BUILD_MODE_DURATION = 10.0f;
 const float MIN_FIGHT_MODE_DURATION = 30.0f;

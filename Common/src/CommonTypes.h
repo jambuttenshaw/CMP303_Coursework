@@ -19,9 +19,9 @@ sf::Packet& operator >>(sf::Packet& packet, PlayerTeam& team);
 
 enum class GameState : sf::Uint8
 {
-	Invalid,
+	Lobby,
 	FightMode,
-	BuildMode
+	BuildMode,
 };
 sf::Packet& operator <<(sf::Packet& packet, const GameState& state);
 sf::Packet& operator >>(sf::Packet& packet, GameState& state);

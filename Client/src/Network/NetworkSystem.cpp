@@ -52,10 +52,29 @@ void NetworkSystem::GUI()
 
 		ImGui::Separator();
 		if (ImGui::Button("Change Team")) RequestChangeTeam();
+		
+		if (*m_GameState == GameState::Lobby)
+		{
+			if (m_GameStartRequested)
+			{
+				ImGui::Text("Waiting on other players to be ready...");
+			}
+			else
+			{
+				if (ImGui::Button("Ready To Start")) RequestGameStart();
+			}
+		}
 	}
 	else
 	{
-		if (ImGui::Button("Connect")) Connect();
+		ImGui::InputText("Server IP:", m_GUIServerIP, 16);
+		ImGui::InputInt("Server Port:", &m_GUIServerPort);
+		if (ImGui::Button("Connect"))
+		{
+			m_ServerAddress = sf::IpAddress{ m_GUIServerIP };
+			m_ServerPort = static_cast<unsigned short>(m_GUIServerPort);
+			Connect();
+		}
 	}
 }
 
@@ -119,7 +138,7 @@ void NetworkSystem::Connect()
 		return;
 	}
 
-	auto status = m_TcpSocket.connect(SERVER_ADDRESS, SERVER_PORT);
+	auto status = m_TcpSocket.connect(m_ServerAddress, m_ServerPort);
 	if (status != sf::Socket::Done)
 	{
 		// wait to recieve client ID from server
@@ -137,6 +156,16 @@ void NetworkSystem::Disconnect()
 	sf::Packet packet;
 	packet << header;
 	SendPacketToServerTcp(packet);
+}
+
+void NetworkSystem::RequestGameStart()
+{
+	MessageHeader header = CreateHeader(MessageCode::GameStart);
+	sf::Packet p;
+	p << header;
+	SendPacketToServerTcp(p);
+
+	m_GameStartRequested = true;
 }
 
 void NetworkSystem::RequestChangeTeam()
@@ -272,18 +301,19 @@ void NetworkSystem::ProcessIncomingTcp()
 
 		switch (header.messageCode)
 		{
-		case MessageCode::Disconnect:			OnDisconnect(header, packet); break;
-		case MessageCode::PlayerConnected:		OnOtherPlayerConnect(header, packet); break;
-		case MessageCode::PlayerDisconnected:	OnOtherPlayerDisconnect(header, packet); break;
-		case MessageCode::ChangeTeam:			OnPlayerChangeTeam(header, packet); break;
-		case MessageCode::GetServerTime:		OnServerTimeUpdate(header, packet); break;
-		case MessageCode::Shoot:				OnShoot(header, packet); break;
-		case MessageCode::ProjectilesDestroyed:	OnProjectilesDestroyed(header, packet); break;
-		case MessageCode::Place:				OnPlace(header, packet); break;
-		case MessageCode::BlocksDestroyed:		OnBlocksDestroyed(header, packet); break;
-		case MessageCode::ChangeGameState:		OnChangeGameState(header, packet); break;
-		case MessageCode::TurfLineMoved:		OnTurfLineMoved(header, packet); break;
-		case MessageCode::PlayerDeath:			OnPlayerDeath(header, packet); break;
+		case MessageCode::Disconnect:			OnDisconnect			(header, packet); break;
+		case MessageCode::PlayerConnected:		OnOtherPlayerConnect	(header, packet); break;
+		case MessageCode::PlayerDisconnected:	OnOtherPlayerDisconnect	(header, packet); break;
+		case MessageCode::ChangeTeam:			OnPlayerChangeTeam		(header, packet); break;
+		case MessageCode::GetServerTime:		OnServerTimeUpdate		(header, packet); break;
+		case MessageCode::Shoot:				OnShoot					(header, packet); break;
+		case MessageCode::ProjectilesDestroyed:	OnProjectilesDestroyed	(header, packet); break;
+		case MessageCode::Place:				OnPlace					(header, packet); break;
+		case MessageCode::BlocksDestroyed:		OnBlocksDestroyed		(header, packet); break;
+		case MessageCode::ChangeGameState:		OnChangeGameState		(header, packet); break;
+		case MessageCode::TurfLineMoved:		OnTurfLineMoved			(header, packet); break;
+		case MessageCode::PlayerDeath:			OnPlayerDeath			(header, packet); break;
+		case MessageCode::GameStart:			OnGameStart				(header, packet); break;
 		case MessageCode::ShootRequestDenied:	break;
 		case MessageCode::PlaceRequestDenied:	break;
 		default:								LOG_WARN("Recieved unexpected message code"); break;
@@ -308,7 +338,7 @@ void NetworkSystem::SendPacketToServerTcp(sf::Packet& packet)
 	
 void NetworkSystem::SendPacketToServerUdp(sf::Packet& packet)
 {
-	sf::Socket::Status status = m_UdpSocket.send(packet, SERVER_ADDRESS, SERVER_PORT);
+	sf::Socket::Status status = m_UdpSocket.send(packet, m_ServerAddress, m_ServerPort);
 	if (status != sf::Socket::Done)
 	{
 		LOG_ERROR("Sending message to server failed!");
@@ -368,8 +398,10 @@ void NetworkSystem::OnDisconnect(const MessageHeader& header, sf::Packet& packet
 	m_ConnectionState = ConnectionState::Disconnected;
 	m_ClientID = INVALID_CLIENT_ID;
 	m_SimulationTime = 0.0f;
-
-	LOG_INFO("Disconnected");
+	m_Player->SetTeam(PlayerTeam::None);
+	m_GameStartRequested = false;
+	*m_GameState = GameState::Lobby;
+	m_RemainingGameStateDuration = 0;
 
 	for (auto player : *m_NetworkPlayers)
 		delete player;
@@ -381,7 +413,7 @@ void NetworkSystem::OnDisconnect(const MessageHeader& header, sf::Packet& packet
 		delete block;
 	m_Blocks->clear();
 	
-	m_Player->SetTeam(PlayerTeam::None);
+	LOG_INFO("Disconnected");
 }
 
 void NetworkSystem::OnOtherPlayerConnect(const MessageHeader& header, sf::Packet& packet)
@@ -533,6 +565,20 @@ void NetworkSystem::OnChangeGameState(const MessageHeader& header, sf::Packet& p
 	for (auto projectile : *m_Projectiles)
 		delete projectile;
 	m_Projectiles->clear();
+
+	if (*m_GameState == GameState::Lobby)
+	{
+		// returned to lobby: kill all blocks placed by players
+		for (auto it = m_Blocks->begin(); it != m_Blocks->end();)
+		{
+			if ((*it)->GetTeam() != PlayerTeam::None)
+			{
+				delete (*it);
+				it = m_Blocks->erase(it);
+			}
+			else it++;
+		}
+	}
 }
 
 void NetworkSystem::OnTurfLineMoved(const MessageHeader& header, sf::Packet& packet)
@@ -543,14 +589,28 @@ void NetworkSystem::OnTurfLineMoved(const MessageHeader& header, sf::Packet& pac
 	m_ChangeTurfLineFunc(message.newTurfLine);
 }
 
-void NetworkSystem::OnPlayerDeath(const MessageHeader& header, sf::Packet&)
+void NetworkSystem::OnPlayerDeath(const MessageHeader& header, sf::Packet& packet)
 {
 	GoToSpawn();
 }
 
+void NetworkSystem::OnGameStart(const MessageHeader& header, sf::Packet& packet)
+{
+	GoToSpawn();
+
+	*m_GameState = GameState::BuildMode;
+	m_RemainingGameStateDuration = INITIAL_BUILD_MODE_DURATION;
+
+	m_ChangeTurfLineFunc(0.5f * WORLD_WIDTH);
+
+	m_GameStartRequested = false;
+}
+
+
 #pragma endregion
 
 #pragma region Utility
+
 
 NetworkPlayer* NetworkSystem::FindNetworkPlayerWithID(ClientID id)
 {
@@ -564,9 +624,9 @@ NetworkPlayer* NetworkSystem::FindNetworkPlayerWithID(ClientID id)
 void NetworkSystem::GoToSpawn()
 {
 	if (m_Player->GetTeam() == PlayerTeam::Red)
-		m_Player->setPosition({ 0.5f * SPAWN_WIDTH, 0.5f * WORLD_MAX_Y });
+		m_Player->setPosition({ 0.5f * SPAWN_WIDTH, 0.5f * WORLD_HEIGHT });
 	else
-		m_Player->setPosition({ WORLD_MAX_X - 0.5f * SPAWN_WIDTH, 0.5f * WORLD_MAX_Y });
+		m_Player->setPosition({ WORLD_WIDTH - 0.5f * SPAWN_WIDTH, 0.5f * WORLD_HEIGHT });
 }
 
 #pragma endregion

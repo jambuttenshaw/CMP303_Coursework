@@ -52,7 +52,7 @@ private:
 	// Networking
 	NetworkSystem m_NetworkSystem;
 
-	GameState m_GameState = GameState::Invalid;
+	GameState m_GameState = GameState::Lobby;
 
 	ControllablePlayer m_Player;
 	PlayerIndicator m_Indicator;

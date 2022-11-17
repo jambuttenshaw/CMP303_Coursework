@@ -34,22 +34,12 @@ ServerApplication::ServerApplication()
 	m_NewConnection = new Connection;
 
 
-	// setup gameplay
-	switch (m_GameState)
-	{
-	case GameState::Invalid:	LOG_ERROR("Invalid game state"); break;
-	case GameState::BuildMode:	m_StateDuration = m_BuildModeDuration; break;
-	case GameState::FightMode:	m_StateDuration = m_FightModeDuration; break;
-	default:					LOG_ERROR("Unknown game state"); break;
-	}
-
-
 	// create the blocks around spawn
 	const int blockCount = 11;
 	for (int i = 0; i < blockCount; i++)
 	{
-		m_Blocks.push_back(new BlockState{ NextBlockID(), PlayerTeam::None, { SPAWN_WIDTH,				 0.5f * WORLD_MAX_Y - (BLOCK_SIZE * (blockCount / 2)) + BLOCK_SIZE * i } });
-		m_Blocks.push_back(new BlockState{ NextBlockID(), PlayerTeam::None, { WORLD_MAX_X - SPAWN_WIDTH, 0.5f * WORLD_MAX_Y - (BLOCK_SIZE * (blockCount / 2)) + BLOCK_SIZE * i } });
+		m_Blocks.push_back(new BlockState{ NextBlockID(), PlayerTeam::None, { SPAWN_WIDTH - 0.5f * BLOCK_SIZE,				 0.5f * WORLD_HEIGHT - (BLOCK_SIZE * (blockCount / 2)) + BLOCK_SIZE * i } });
+		m_Blocks.push_back(new BlockState{ NextBlockID(), PlayerTeam::None, { WORLD_WIDTH - SPAWN_WIDTH + 0.5f * BLOCK_SIZE, 0.5f * WORLD_HEIGHT - (BLOCK_SIZE * (blockCount / 2)) + BLOCK_SIZE * i } });
 	}
 
 }
@@ -120,6 +110,7 @@ void ServerApplication::Run()
 				case MessageCode::GetServerTime:		ProcessGetServerTime(client, header, packet); break;
 				case MessageCode::Shoot:				ProcessShootRequest(client, header, packet); break;
 				case MessageCode::Place:				ProcessPlaceRequest(client, header, packet); break;
+				case MessageCode::GameStart:			ProcessGameStartRequest(client, header, packet); break;
 					// these messages are sent from the server to clients, so it would be incorrect for the server to recieve them
 				case MessageCode::Connect:
 				case MessageCode::PlayerConnected:
@@ -173,6 +164,8 @@ void ServerApplication::Run()
 
 void ServerApplication::SimulateGameObjects(float dt)
 {
+	bool gameOver = false;
+
 	// simulate projectiles
 	for (auto proj_it = m_Projectiles.begin(); proj_it != m_Projectiles.end();)
 	{
@@ -217,9 +210,10 @@ void ServerApplication::SimulateGameObjects(float dt)
 					// move turf line
 					m_TurfLine += BLOCK_SIZE * (projectile->team == PlayerTeam::Red ? 1 : - 1);
 					// check win condition
-					if (false)
+					if (m_TurfLine <= SPAWN_WIDTH || m_TurfLine >= WORLD_WIDTH - SPAWN_WIDTH)
 					{
-						// game over - a team won
+						EndGame();
+						gameOver = true;
 					}
 
 					// transmit turf move to all players
@@ -236,9 +230,10 @@ void ServerApplication::SimulateGameObjects(float dt)
 				break;
 			}
 		}
+		if (gameOver) break;
 
-		if (hitBlock || hitPlayer || projectile->position.x - PROJECTILE_RADIUS < 0 || projectile->position.x + PROJECTILE_RADIUS > WORLD_MAX_X
-								  || projectile->position.y - PROJECTILE_RADIUS < 0 || projectile->position.y + PROJECTILE_RADIUS > WORLD_MAX_Y)
+		if (hitBlock || hitPlayer || projectile->position.x - PROJECTILE_RADIUS < 0 || projectile->position.x + PROJECTILE_RADIUS > WORLD_WIDTH
+								  || projectile->position.y - PROJECTILE_RADIUS < 0 || projectile->position.y + PROJECTILE_RADIUS > WORLD_HEIGHT)
 		{
 			// projectile is out of bounds
 			DestroyProjectile(projectile);
@@ -251,6 +246,8 @@ void ServerApplication::SimulateGameObjects(float dt)
 
 void ServerApplication::UpdateGameState(float dt)
 {
+	if (m_GameState == GameState::Lobby) return;
+
 	m_StateTimer += dt;
 
 	if (m_StateTimer > m_StateDuration)
@@ -260,8 +257,7 @@ void ServerApplication::UpdateGameState(float dt)
 
 		switch (m_GameState)
 		{
-		case GameState::Invalid:
-			LOG_ERROR("Invalid game state"); break;
+		case GameState::Lobby: break;
 		case GameState::FightMode:
 			m_GameState = GameState::BuildMode;
 			m_StateDuration = m_BuildModeDuration;
@@ -291,6 +287,56 @@ void ServerApplication::UpdateGameState(float dt)
 		}
 	}
 
+}
+
+void ServerApplication::StartGame()
+{
+	m_GameState = GameState::BuildMode;
+	m_StateDuration = INITIAL_BUILD_MODE_DURATION;
+
+	m_BuildModeDuration = INITIAL_BUILD_MODE_DURATION;
+	m_FightModeDuration = INITIAL_FIGHT_MODE_DURATION;
+
+	// reset turf line
+	m_TurfLine = 0.5f * WORLD_WIDTH;
+
+	// tell all clients the game has started
+	for (auto client : m_Clients)
+	{
+		client->SendMessageTcp(MessageCode::GameStart);
+		// reset ready flag
+		client->SetReady(false);
+	}
+}
+
+void ServerApplication::EndGame()
+{
+	m_GameState = GameState::Lobby;
+	m_StateDuration = 0.0f;
+	m_StateTimer = 0.0f;
+
+	for (auto client : m_Clients)
+	{
+		ChangeGameStateMessage message{ m_GameState, m_StateDuration };
+		client->SendMessageTcp(MessageCode::ChangeGameState, message);
+		// reset ready flag
+		client->SetReady(false);
+	}
+
+	// kill all projectiles
+	for (auto projectile : m_Projectiles)
+		delete projectile;
+	m_Projectiles.clear();
+	// kill all blocks placed by players
+	for (auto it = m_Blocks.begin(); it != m_Blocks.end();)
+	{
+		if ((*it)->team != PlayerTeam::None)
+		{
+			delete (*it);
+			it = m_Blocks.erase(it);
+		}
+		else it++;
+	}
 }
 
 void ServerApplication::DestroyProjectile(ProjectileState* projectile)
@@ -521,6 +567,25 @@ void ServerApplication::ProcessPlaceRequest(Connection* client, const MessageHea
 	}
 }
 
+void ServerApplication::ProcessGameStartRequest(Connection* client, const MessageHeader& header, sf::Packet& packet)
+{
+	if (m_GameState != GameState::Lobby)
+	{
+		LOG_WARN("Cannot request game to start outside of lobby state!");
+		return;
+	}
+
+	client->SetReady(true);
+
+	// if all clients are ready then start the game
+	bool allReady = true;
+	for (auto c : m_Clients)
+		allReady &= c->IsReady();
+
+	if (allReady)
+		StartGame();
+}
+
 
 Connection* ServerApplication::FindClientWithID(ClientID id)
 {
@@ -580,7 +645,7 @@ bool ServerApplication::OnTeamTurf(const sf::Vector2f& p, PlayerTeam team)
 	{
 	case PlayerTeam::None:	return true; // always allow team-less blocks (because theyll be server spawned)
 	case PlayerTeam::Red:	return p.x < m_TurfLine && p.x > SPAWN_WIDTH;
-	case PlayerTeam::Blue:	return p.x > m_TurfLine && p.x < WORLD_MAX_X - SPAWN_WIDTH;
+	case PlayerTeam::Blue:	return p.x > m_TurfLine && p.x < WORLD_WIDTH - SPAWN_WIDTH;
 	default:				return false;
 	}
 

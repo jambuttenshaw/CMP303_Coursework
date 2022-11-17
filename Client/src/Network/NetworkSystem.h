@@ -42,6 +42,7 @@ public:
 	void Connect();
 	void Disconnect();
 
+	void RequestGameStart();
 	void RequestChangeTeam();
 
 	void RequestShoot(const sf::Vector2f& position, const sf::Vector2f& direction);
@@ -58,20 +59,21 @@ private:
 	void SendPacketToServerUdp(sf::Packet& packet);
 
 	// callbacks from messages
-	void OnConnect(const MessageHeader& header, sf::Packet& packet);
-	void OnDisconnect(const MessageHeader& header, sf::Packet& packet);
-	void OnOtherPlayerConnect(const MessageHeader& header, sf::Packet& packet);
-	void OnOtherPlayerDisconnect(const MessageHeader& header, sf::Packet& packet);
-	void OnRecieveUpdate(const MessageHeader& header, sf::Packet& packet);
-	void OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& packet);
-	void OnServerTimeUpdate(const MessageHeader& header, sf::Packet& packet);
-	void OnShoot(const MessageHeader& header, sf::Packet& packet);
-	void OnProjectilesDestroyed(const MessageHeader& header, sf::Packet& packet);
-	void OnPlace(const MessageHeader& header, sf::Packet& packet);
-	void OnBlocksDestroyed(const MessageHeader& header, sf::Packet& packet);
-	void OnChangeGameState(const MessageHeader& header, sf::Packet& packet);
-	void OnTurfLineMoved(const MessageHeader& header, sf::Packet& packet);
-	void OnPlayerDeath(const MessageHeader& header, sf::Packet&);
+	void OnConnect					(const MessageHeader&, sf::Packet&);
+	void OnDisconnect				(const MessageHeader&, sf::Packet&);
+	void OnOtherPlayerConnect		(const MessageHeader&, sf::Packet&);
+	void OnOtherPlayerDisconnect	(const MessageHeader&, sf::Packet&);
+	void OnRecieveUpdate			(const MessageHeader&, sf::Packet&);
+	void OnPlayerChangeTeam			(const MessageHeader&, sf::Packet&);
+	void OnServerTimeUpdate			(const MessageHeader&, sf::Packet&);
+	void OnShoot					(const MessageHeader&, sf::Packet&);
+	void OnProjectilesDestroyed		(const MessageHeader&, sf::Packet&);
+	void OnPlace					(const MessageHeader&, sf::Packet&);
+	void OnBlocksDestroyed			(const MessageHeader&, sf::Packet&);
+	void OnChangeGameState			(const MessageHeader&, sf::Packet&);
+	void OnTurfLineMoved			(const MessageHeader&, sf::Packet&);
+	void OnPlayerDeath				(const MessageHeader&, sf::Packet&);
+	void OnGameStart				(const MessageHeader&, sf::Packet&);
 
 	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode }; }
 
@@ -80,6 +82,9 @@ private:
 	void GoToSpawn();
 
 private:
+	sf::IpAddress m_ServerAddress = sf::IpAddress::None;
+	unsigned short m_ServerPort = (unsigned short)(-1);
+
 	sf::TcpSocket m_TcpSocket;
 	sf::UdpSocket m_UdpSocket;
 
@@ -94,6 +99,8 @@ private:
 
 	float m_RemainingGameStateDuration = 0.0f;
 
+	bool m_GameStartRequested = false;
+
 	// pointers to game objects and game object containers
 	ControllablePlayer* m_Player = nullptr;
 	std::vector<NetworkPlayer*>* m_NetworkPlayers = nullptr;
@@ -101,4 +108,8 @@ private:
 	std::vector<Block*>* m_Blocks = nullptr;
 	GameState* m_GameState = nullptr;
 	std::function<void(float)> m_ChangeTurfLineFunc;
+
+	// gui
+	char m_GUIServerIP[16] = "127.0.0.1";
+	int m_GUIServerPort = 4444;
 };

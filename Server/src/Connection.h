@@ -19,6 +19,9 @@ public:
 
 	PlayerState& GetPlayerState() { return m_PlayerState; }
 
+	bool IsReady() const { return m_Ready; }
+	void SetReady(bool ready) { m_Ready = ready; }
+
 	void OnTcpConnected(ClientID id);
 	void SetUdpPort(unsigned short clientPort);
 
@@ -45,4 +48,7 @@ private:
 
 	// in-game player properties
 	PlayerState m_PlayerState;
+
+	// ready for game to start
+	bool m_Ready = false;
 };

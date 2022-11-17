@@ -33,8 +33,8 @@ const char* GameStateToStr(GameState s)
 {
 	switch (s)
 	{
-	case GameState::Invalid:
-		return "Invalid";
+	case GameState::Lobby:
+		return "Lobby";
 		break;
 	case GameState::FightMode:
 		return "Fight Mode";

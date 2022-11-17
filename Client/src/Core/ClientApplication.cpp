@@ -12,7 +12,7 @@
 
 
 ClientApplication::ClientApplication()
-	: m_Window(sf::VideoMode(static_cast<unsigned int >(WORLD_MAX_X), static_cast<unsigned int>(WORLD_MAX_Y)), "CMP303 Client"), m_Player(m_Window)
+	: m_Window(sf::VideoMode(static_cast<unsigned int >(WORLD_WIDTH), static_cast<unsigned int>(WORLD_HEIGHT)), "CMP303 Client"), m_Player(m_Window)
 {
     m_Window.setVerticalSyncEnabled(true);
 
@@ -23,7 +23,7 @@ ClientApplication::ClientApplication()
     m_RedBackground.setFillColor(LightRedTeamColor);
     m_BlueBackground.setFillColor(LightBlueTeamColor);
 
-    ChangeTurfLine(0.5f * (WORLD_MAX_X - WORLD_MIN_X));
+    ChangeTurfLine(0.5f * WORLD_WIDTH);
 
     m_GhostBlock = new Block(INVALID_BLOCK_ID, m_Player.GetTeam(), { 0, 0 });
     m_GhostBlock->setFillColor(GetGhostBlockColour(m_Player.GetTeam(), true));
@@ -274,11 +274,11 @@ void ClientApplication::ChangeTurfLine(float turfLine)
 {
     m_TurfLine = turfLine;
 
-    m_RedBackground.setSize(sf::Vector2f{ m_TurfLine - SPAWN_WIDTH - 0.f * BLOCK_SIZE, WORLD_MAX_Y - WORLD_MIN_Y });
-    m_RedBackground.setPosition({ WORLD_MIN_X + SPAWN_WIDTH, WORLD_MIN_Y });
+    m_RedBackground.setSize(sf::Vector2f{ m_TurfLine - SPAWN_WIDTH, WORLD_HEIGHT });
+    m_RedBackground.setPosition({ SPAWN_WIDTH, 0.0f });
 
-    m_BlueBackground.setSize(sf::Vector2f{ WORLD_MAX_X - WORLD_MIN_X - m_TurfLine - SPAWN_WIDTH - 0.f * BLOCK_SIZE, WORLD_MAX_Y - WORLD_MIN_Y });
-    m_BlueBackground.setPosition({ WORLD_MIN_X + m_TurfLine + 0.f * BLOCK_SIZE, WORLD_MIN_Y });
+    m_BlueBackground.setSize(sf::Vector2f{ WORLD_WIDTH - m_TurfLine - SPAWN_WIDTH, WORLD_HEIGHT });
+    m_BlueBackground.setPosition({ m_TurfLine, 0.0f });
 }
 
 bool ClientApplication::OnTeamTurf(const sf::Vector2f& pos, PlayerTeam team) const
@@ -287,7 +287,7 @@ bool ClientApplication::OnTeamTurf(const sf::Vector2f& pos, PlayerTeam team) con
     {
     case PlayerTeam::None: return false;
     case PlayerTeam::Red:  return pos.x < m_TurfLine && pos.x > SPAWN_WIDTH;
-    case PlayerTeam::Blue: return pos.x > m_TurfLine && pos.x < WORLD_MAX_X - SPAWN_WIDTH;
+    case PlayerTeam::Blue: return pos.x > m_TurfLine && pos.x < WORLD_WIDTH - SPAWN_WIDTH;
     }
     return false;
 }

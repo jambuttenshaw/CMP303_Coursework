@@ -23,6 +23,9 @@ private:
 	void SimulateGameObjects(float dt);
 	void UpdateGameState(float dt);
 
+	void StartGame();
+	void EndGame();
+
 	void DestroyProjectile(ProjectileState* projectile);
 	void DestroyBlock(BlockState* block);
 
@@ -34,6 +37,7 @@ private:
 	void ProcessGetServerTime(Connection* client, const MessageHeader& header, sf::Packet& packet);
 	void ProcessShootRequest(Connection* client, const MessageHeader& header, sf::Packet& packet);
 	void ProcessPlaceRequest(Connection* client, const MessageHeader& header, sf::Packet& packet);
+	void ProcessGameStartRequest(Connection* client, const MessageHeader& header, sf::Packet& packet);
 
 	Connection* FindClientWithID(ClientID id);
 
@@ -81,14 +85,14 @@ private:
 	// gameplay
 	unsigned int m_RedTeamPlayerCount = 0, m_BlueTeamPlayerCount = 0;
 
-	GameState m_GameState = INITIAL_GAME_STATE;
+	GameState m_GameState = GameState::Lobby;
 	float m_BuildModeDuration = INITIAL_BUILD_MODE_DURATION;
 	float m_FightModeDuration = INITIAL_FIGHT_MODE_DURATION;
 	float m_StateTimer = 0.0f;
 	float m_StateDuration = 0.0f;
 
 	// turf line starts at halfway
-	float m_TurfLine = 0.5f * (WORLD_MAX_X - WORLD_MIN_X);
+	float m_TurfLine = 0.5f * WORLD_WIDTH;
 
 	// objects simulated by the server
 	std::vector<ProjectileState*> m_Projectiles;
