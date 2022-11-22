@@ -2,8 +2,8 @@
 
 #include <imgui.h>
 
+#include "NetworkPlayer.h"
 #include "GameObjects\ControllablePlayer.h"
-#include "GameObjects\NetworkPlayer.h"
 #include "GameObjects\Projectile.h"
 #include "GameObjects\Block.h"
 

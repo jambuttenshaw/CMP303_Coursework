@@ -3,7 +3,7 @@
 #include "imgui-sfml.h"
 #include "imgui.h"
 
-#include "GameObjects/NetworkPlayer.h"
+#include "Network/NetworkPlayer.h"
 #include "GameObjects/Block.h"
 #include "GameObjects/Projectile.h"
 
@@ -88,7 +88,7 @@ void ClientApplication::Run()
             }
         }
 
-        if (m_Window.hasFocus()) HandleInput(dt);
+        HandleInput(dt);
 
 
         // update
@@ -117,10 +117,17 @@ void ClientApplication::Run()
 void ClientApplication::HandleInput(float dt)
 {
     // perform player movement
-    sf::Vector2f movement = m_Player.CalculateMovement(dt);
+    sf::Vector2f movement{ 0.0f, 0.0f };
+    if (ControllablePlayer::AutomoveEnabled())
+        movement = ControllablePlayer::Automove(dt);
+    else if (m_Window.hasFocus())
+        movement = m_Player.CalculateMovement(dt);
+
     sf::Vector2f oldPos = m_Player.getPosition();
     sf::Vector2f newPos = oldPos + movement;
     m_Player.setPosition(newPos);
+
+    float oldRot = m_Player.getRotation();
     m_Player.setRotation(0.0f); // temporarily remove rotation for collision detection
 
     // collision detection
@@ -180,32 +187,31 @@ void ClientApplication::HandleInput(float dt)
     m_Player.setPosition(newPos);
 
 
-    m_Player.UpdateRotation();
-
-
-    // build mode
-    if (m_GameState == GameState::BuildMode)
+    if (m_Window.hasFocus())
     {
-        // update ghost block
-        sf::Vector2f mousePos = static_cast<sf::Vector2f>(sf::Mouse::getPosition(m_Window));
+        m_Player.UpdateRotation();
 
-        float s = m_GhostBlock->getSize().x;
-        sf::Vector2f blockPos{ s * roundf(mousePos.x / s), s * roundf(mousePos.y / s) };
+        // build mode
+        if (m_GameState == GameState::BuildMode)
+        {
+            // update ghost block
+            sf::Vector2f mousePos = static_cast<sf::Vector2f>(sf::Mouse::getPosition(m_Window));
 
-        m_GhostBlock->setPosition(blockPos);
+            float s = m_GhostBlock->getSize().x;
+            sf::Vector2f blockPos{ s * roundf(mousePos.x / s), s * roundf(mousePos.y / s) };
 
-        bool canPlace = CanPlaceBlock();
+            m_GhostBlock->setPosition(blockPos);
 
-        // update colour
-        m_GhostBlock->setFillColor(GetGhostBlockColour(m_Player.GetTeam(), !canPlace));
+            bool canPlace = CanPlaceBlock();
 
-        if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && canPlace)
-            PlaceBlock();
+            // update colour
+            m_GhostBlock->setFillColor(GetGhostBlockColour(m_Player.GetTeam(), !canPlace));
+
+            if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left) && canPlace)
+                PlaceBlock();
+        }
     }
-    // fight mode
-    else if (m_GameState == GameState::FightMode)
-    {
-    }
+    else m_Player.setRotation(oldRot);
 }
 
 void ClientApplication::Update(float dt)
@@ -259,6 +265,10 @@ void ClientApplication::GUI()
     m_NetworkSystem.GUI();
 
     ImGui::Separator();
+    ImGui::Text("Client Settings:");
+    ControllablePlayer::SettingsGUI();
+    ImGui::Text("Remote Settings:");
+    NetworkPlayer::SettingsGUI();
 }
 
 

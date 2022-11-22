@@ -6,6 +6,10 @@
 #include "MathUtils.h"
 #include "Constants.h"
 
+#include "imgui.h"
+
+
+bool ControllablePlayer::s_EnableAutomove = false;
 
 ControllablePlayer::ControllablePlayer(sf::RenderWindow& window)
 	: m_Window(window)
@@ -18,6 +22,8 @@ ControllablePlayer::~ControllablePlayer()
 
 sf::Vector2f ControllablePlayer::CalculateMovement(float dt)
 {
+	if (s_EnableAutomove) return Automove(dt);
+
 	sf::Vector2f velocity{ 0, 0 };
 	if (sf::Keyboard::isKeyPressed(sf::Keyboard::D))
 		velocity.x += 1;
@@ -41,4 +47,18 @@ void ControllablePlayer::UpdateRotation()
 	float angle = RadToDeg(atan2f(toMouse.y, toMouse.x));
 
 	setRotation(angle);
+}
+
+void ControllablePlayer::SettingsGUI()
+{
+	ImGui::Checkbox("Automove", &s_EnableAutomove);
+}
+
+sf::Vector2f ControllablePlayer::Automove(float dt)
+{
+	static float t = 0;
+
+	sf::Vector2f velocity{ 0, 2.0f * cosf(2.0f * t) };
+	t += dt;
+	return velocity;
 }

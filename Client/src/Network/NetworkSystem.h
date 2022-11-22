@@ -4,8 +4,6 @@
 #include "Network/NetworkTypes.h"
 #include "Log.h"
 
-#include "GameObjects/ControllablePlayer.h"
-
 #include <vector>
 #include <functional>
 

@@ -14,6 +14,13 @@ public:
 	sf::Vector2f CalculateMovement(float dt);
 	void UpdateRotation();
 
+public:
+	static void SettingsGUI();
+	static bool AutomoveEnabled() { return s_EnableAutomove; }
+	static sf::Vector2f Automove(float dt);
+
 private:
 	sf::RenderWindow& m_Window;
+
+	static bool s_EnableAutomove;
 };

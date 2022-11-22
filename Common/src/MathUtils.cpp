@@ -88,6 +88,16 @@ float LerpAngleDegrees(float a, float b, float t)
 	return value;
 }
 
+float LerpNoClamp(float a, float b, float t)
+{
+	return a * (1.0f - t) + b * t;
+}
+
+sf::Vector2f LerpNoClamp(const sf::Vector2f& a, const sf::Vector2f& b, float t)
+{
+	return sf::Vector2f(LerpNoClamp(a.x, b.x, t), LerpNoClamp(a.y, b.y, t));
+}
+
 float Smoothstep(float edge0, float edge1, float x)
 {
 	if (x < edge0)

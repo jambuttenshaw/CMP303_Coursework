@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Player.h"
+#include "GameObjects/Player.h"
 #include "Network/NetworkTypes.h"
 
 #include <deque>
@@ -26,6 +26,10 @@ public:
 
 	void RenderDebugLines(sf::RenderWindow& window);
 
+public:
+
+	static void SettingsGUI();
+
 private:
 
 	sf::Vector2f PredictPosition(const StateRecord& state0, const StateRecord& state1, float currentSimTime);
@@ -41,4 +45,12 @@ private:
 	// debug lines
 	sf::VertexArray m_DebugLines;
 	float m_CurrentSimulationTime = 0.0f;
+
+private:
+
+	static bool s_EnablePrediction;
+	static bool s_EnableInterpolation;
+	static bool s_ClampInterpolationParameter;
+	static bool s_EnableOutOfOrderChecks;
+
 };

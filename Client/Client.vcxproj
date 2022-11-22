@@ -91,7 +91,7 @@
     <ClCompile Include="src\Core\Colors.cpp" />
     <ClCompile Include="src\GameObjects\Block.cpp" />
     <ClCompile Include="src\GameObjects\ControllablePlayer.cpp" />
-    <ClCompile Include="src\GameObjects\NetworkPlayer.cpp" />
+    <ClCompile Include="src\Network\NetworkPlayer.cpp" />
     <ClCompile Include="src\GameObjects\Player.cpp" />
     <ClCompile Include="src\GameObjects\PlayerIndicator.cpp" />
     <ClCompile Include="src\GameObjects\Projectile.cpp" />
@@ -103,7 +103,7 @@
     <ClInclude Include="src\Core\Colors.h" />
     <ClInclude Include="src\GameObjects\Block.h" />
     <ClInclude Include="src\GameObjects\ControllablePlayer.h" />
-    <ClInclude Include="src\GameObjects\NetworkPlayer.h" />
+    <ClInclude Include="src\Network\NetworkPlayer.h" />
     <ClInclude Include="src\GameObjects\Player.h" />
     <ClInclude Include="src\GameObjects\PlayerIndicator.h" />
     <ClInclude Include="src\GameObjects\Projectile.h" />
