@@ -94,12 +94,12 @@ sf::Packet& operator>>(sf::Packet& packet, PlayerDisconnectedMessage& message)
 
 sf::Packet& operator<<(sf::Packet& packet, const UpdateMessage& message)
 {
-	return packet << message.playerID << message.x << message.y << message.rotation;
+	return packet << message.playerID << message.x << message.y << message.rotation << message.dt;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, UpdateMessage& message)
 {
-	return packet >> message.playerID >> message.x >> message.y >> message.rotation;
+	return packet >> message.playerID >> message.x >> message.y >> message.rotation >> message.dt;
 }
 
 
@@ -218,7 +218,7 @@ bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile)
 }
 
 
-bool PlayerProjectileCollision(PlayerState* player, ProjectileState* projectile)
+bool PlayerProjectileCollision(PlayerStateFrame* player, ProjectileState* projectile)
 {
 	float sqrDistanceBetweenCentres = SqrLength(player->position - projectile->position);
 	float playerRadius = 0.5f * PLAYER_SIZE;

@@ -2,6 +2,9 @@
 
 #include "Network\NetworkTypes.h"
 
+#include <deque>
+#include <cassert>
+
 
 class Connection
 {
@@ -9,19 +12,25 @@ public:
 	Connection();
 	~Connection();
 
-	sf::TcpSocket& GetSocket() { return m_Socket; }
-	ClientID GetID() const { return m_ID; }
-	sf::Uint8 GetPlayerNumber() const { return m_PlayerNumber; }
-	const sf::IpAddress& GetIP() const { return m_ClientIP; }
-	unsigned short GetTcpPort() const { return m_TcpPort; }
-	unsigned short GetUdpPort() const { return m_UdpPort; }
+	inline sf::TcpSocket& GetSocket() { return m_Socket; }
+	inline ClientID GetID() const { return m_ID; }
+	
+	inline sf::Uint8 GetPlayerNumber() const { return m_PlayerNumber; }
+	inline PlayerTeam GetPlayerTeam() const { return m_PlayerTeam; }
+	inline void SetPlayerTeam(PlayerTeam team) { m_PlayerTeam = team; }
 
-	bool CanSendUdp() const { return m_UdpPort != (unsigned short)(-1); }
+	inline const sf::IpAddress& GetIP() const { return m_ClientIP; }
+	inline unsigned short GetTcpPort() const { return m_TcpPort; }
+	inline unsigned short GetUdpPort() const { return m_UdpPort; }
 
-	PlayerState& GetPlayerState() { return m_PlayerState; }
+	inline bool CanSendUdp() const { return m_UdpPort != (unsigned short)(-1); }
 
-	bool IsReady() const { return m_Ready; }
-	void SetReady(bool ready) { m_Ready = ready; }
+	inline bool StateQueueEmpty() const { return m_PlayerStateHistory.empty(); }
+	inline PlayerStateFrame& GetCurrentPlayerState() { assert(m_PlayerStateHistory.size() > 0 && "State history is empty!");  return m_PlayerStateHistory[0]; }
+	void AddToStateQueue(const UpdateMessage& updateMessage);
+
+	inline bool IsReady() const { return m_Ready; }
+	inline void SetReady(bool ready) { m_Ready = ready; }
 
 	void OnTcpConnected(ClientID id, sf::Uint8 playerNum);
 	void SetUdpPort(unsigned short clientPort);
@@ -39,6 +48,10 @@ public:
 	}
 
 private:
+
+	float CalculateHistoryDuration();
+
+private:
 	sf::TcpSocket m_Socket;
 
 	// network properties
@@ -50,7 +63,8 @@ private:
 	unsigned short m_UdpPort = -1;
 
 	// in-game player properties
-	PlayerState m_PlayerState;
+	PlayerTeam m_PlayerTeam = PlayerTeam::None;
+	std::deque<PlayerStateFrame> m_PlayerStateHistory;
 
 	// ready for game to start
 	bool m_Ready = false;

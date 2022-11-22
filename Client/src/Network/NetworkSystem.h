@@ -95,6 +95,7 @@ private:
 	float m_LatencyPingBegin = 0.0f;
 
 	float m_UpdateTimer = 0.0f;
+	float m_LastUpdateTime = 0.0f;
 
 	float m_RemainingGameStateDuration = 0.0f;
 

@@ -158,6 +158,34 @@ void ServerApplication::Run()
 				}
 			}
 		}
+
+		// update timer - sending out regular updates to all clients
+		m_UpdateTimer += dt;
+		if (m_UpdateTimer > UPDATE_FREQUENCY)
+		{
+			for (auto& sendingClient : m_Clients)
+			{
+				if (sendingClient->StateQueueEmpty()) continue;
+
+				PlayerStateFrame& ps = sendingClient->GetCurrentPlayerState();
+				UpdateMessage updateMessage
+				{
+					sendingClient->GetID(),
+					ps.position.x,
+					ps.position.y,
+					ps.rotation,
+					ps.dt
+				};
+
+				for (auto& receivingClient : m_Clients)
+				{
+					if (receivingClient->GetID() == sendingClient->GetID()) continue; // dont send a client their own data
+					SendMessageToClientUdp(receivingClient, MessageCode::Update, updateMessage);
+				}
+			}
+
+			m_UpdateTimer = 0.0f;
+		}
 	}
 }
 
@@ -197,10 +225,10 @@ void ServerApplication::SimulateGameObjects(float dt)
 		bool hitPlayer = false;
 		for (auto client : m_Clients)
 		{
-			auto player = client->GetPlayerState();
+			auto player = client->GetCurrentPlayerState();
 			if (PlayerProjectileCollision(&player, projectile))
 			{
-				if (player.team != projectile->team)
+				if (client->GetPlayerTeam() != projectile->team)
 				{
 					hitPlayer = true;
 
@@ -374,18 +402,17 @@ void ServerApplication::ProcessConnect()
 	connectMessage.playerNumber = playerNumber;
 
 	// assign their team
-	PlayerState& state = m_NewConnection->GetPlayerState();
 	if (m_RedTeamPlayerCount < m_BlueTeamPlayerCount)
 	{
-		state.team = PlayerTeam::Red;
+		m_NewConnection->SetPlayerTeam(PlayerTeam::Red);
 		m_RedTeamPlayerCount++;
 	}
 	else
 	{
-		state.team = PlayerTeam::Blue;
+		m_NewConnection->SetPlayerTeam(PlayerTeam::Blue);
 		m_BlueTeamPlayerCount++;
 	}
-	connectMessage.team = state.team;
+	connectMessage.team = m_NewConnection->GetPlayerTeam();
 
 	// tell them about the current world state
 	connectMessage.numPlayers = static_cast<sf::Uint8>(m_Clients.size());
@@ -393,8 +420,7 @@ void ServerApplication::ProcessConnect()
 	{
 		connectMessage.playerIDs[i] = m_Clients[i]->GetID();
 
-		PlayerState& s = m_Clients[i]->GetPlayerState();
-		connectMessage.playerTeams[i] = s.team;
+		connectMessage.playerTeams[i] = m_Clients[i]->GetPlayerTeam();
 	}
 	connectMessage.numBlocks = static_cast<sf::Uint8>(m_Blocks.size());
 	for (size_t i = 0; i < m_Blocks.size(); i++)
@@ -413,7 +439,7 @@ void ServerApplication::ProcessConnect()
 	// tell all other clients a new player has connected
 	for (auto& c : m_Clients)
 	{
-		PlayerConnectedMessage playerConnectedMessage{ newClientID, state.team };
+		PlayerConnectedMessage playerConnectedMessage{ newClientID, m_NewConnection->GetPlayerTeam() };
 		c->SendMessageTcp(MessageCode::PlayerConnected, playerConnectedMessage);
 	}
 
@@ -438,7 +464,7 @@ void ServerApplication::ProcessDisconnect(Connection* client, const MessageHeade
 	client->SendMessageTcp(MessageCode::Disconnect);
 
 	m_NextClientID.push(client->GetID());
-	if (client->GetPlayerState().team == PlayerTeam::Red)
+	if (client->GetPlayerTeam() == PlayerTeam::Red)
 		m_RedTeamPlayerCount--;
 	else
 		m_BlueTeamPlayerCount--;
@@ -475,16 +501,7 @@ void ServerApplication::ProcessUpdate(Connection* client, const MessageHeader& h
 		return;
 	}
 
-	// optimization: check for any changes here before re-sending to all other clients
-	PlayerState& state = client->GetPlayerState();
-	state.Update(updateMessage);
-
-	// send out to all other clients
-	for (auto& c : m_Clients)
-	{
-		if (c == client) continue;
-		SendMessageToClientUdp(c, MessageCode::Update, updateMessage);
-	}
+	client->AddToStateQueue(updateMessage);
 }
 
 void ServerApplication::ProcessChangeTeam(Connection* client, const MessageHeader& header, sf::Packet& packet)
@@ -493,21 +510,20 @@ void ServerApplication::ProcessChangeTeam(Connection* client, const MessageHeade
 	// for now always allow
 	
 	// switch team
-	PlayerState& state = client->GetPlayerState();
-	if (state.team == PlayerTeam::Red)
+	if (client->GetPlayerTeam() == PlayerTeam::Red)
 	{
-		state.team = PlayerTeam::Blue;
+		client->SetPlayerTeam(PlayerTeam::Blue);
 		m_RedTeamPlayerCount--;
 		m_BlueTeamPlayerCount++;
 	}
 	else
 	{
-		state.team = PlayerTeam::Red;
+		client->SetPlayerTeam(PlayerTeam::Red);
 		m_RedTeamPlayerCount++;
 		m_BlueTeamPlayerCount--;
 	}
 
-	ChangeTeamMessage changeTeamMessage{ client->GetID(), state.team };
+	ChangeTeamMessage changeTeamMessage{ client->GetID(), client->GetPlayerTeam() };
 
 	// transmit this change to all clients
 	for (auto c : m_Clients)
@@ -526,7 +542,7 @@ void ServerApplication::ProcessShootRequest(Connection* client, const MessageHea
 	packet >> shootMessage;
 
 	// check if the projectile can be spawned
-	if (VerifyProjecitleShoot({ shootMessage.x, shootMessage.y }, client->GetPlayerState()))
+	if (VerifyProjecitleShoot({ shootMessage.x, shootMessage.y }, client->GetCurrentPlayerState()))
 	{
 		// create new projectile object
 		shootMessage.id = NextProjectileID();
@@ -551,7 +567,7 @@ void ServerApplication::ProcessPlaceRequest(Connection* client, const MessageHea
 	packet >> placeMessage;
 
 	// check if block can be placed
-	if (VerifyBlockPlacement({ placeMessage.x, placeMessage.y }, client->GetPlayerState()))
+	if (VerifyBlockPlacement({ placeMessage.x, placeMessage.y }, client->GetCurrentPlayerState(), client->GetPlayerTeam()))
 	{
 		// create new block
 		placeMessage.id = NextBlockID();
@@ -615,7 +631,7 @@ BlockID ServerApplication::NextBlockID()
 	return m_NextBlockID++;
 }
 
-bool ServerApplication::VerifyProjecitleShoot(const sf::Vector2f& position, const PlayerState& player)
+bool ServerApplication::VerifyProjecitleShoot(const sf::Vector2f& position, const PlayerStateFrame& player)
 {
 	// is the game not in fight mode
 	if (m_GameState != GameState::FightMode) return false;
@@ -623,17 +639,17 @@ bool ServerApplication::VerifyProjecitleShoot(const sf::Vector2f& position, cons
 	return true;
 }
 
-bool ServerApplication::VerifyBlockPlacement(const sf::Vector2f& position, const PlayerState& player)
+bool ServerApplication::VerifyBlockPlacement(const sf::Vector2f& position, const PlayerStateFrame& player, PlayerTeam team)
 {
 	// is the game not in build mode
 	if (m_GameState != GameState::BuildMode) return false;
 	// is the player close enough to the place position
 	if (Length(position - player.position) > BLOCK_PLACE_RADIUS) return false;
 	// is the block on the players own turf
-	if (!OnTeamTurf(position, player.team)) return false;
+	if (!OnTeamTurf(position, team)) return false;
 	// is the block on top of any other players
 	for (auto c : m_Clients)
-		if (Length(position - c->GetPlayerState().position) < PLAYER_SIZE) return false;
+		if (Length(position - c->GetCurrentPlayerState().position) < PLAYER_SIZE) return false;
 	// is the block on top of any other blocks
 	for (auto b : m_Blocks)
 		if (position == b->position) return false;

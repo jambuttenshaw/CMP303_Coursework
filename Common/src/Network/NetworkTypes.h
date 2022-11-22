@@ -106,6 +106,7 @@ struct UpdateMessage
 	float x;
 	float y;
 	float rotation;
+	float dt;
 };
 sf::Packet& operator <<(sf::Packet& packet, const UpdateMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, UpdateMessage& message);
@@ -181,18 +182,18 @@ sf::Packet& operator >>(sf::Packet& packet, TurfLineMoveMessage& message);
 
 
 // NETWORK REPRESENTATIONS OF GAME OBJECTS
-struct PlayerState
+struct PlayerStateFrame
 {
-	PlayerTeam team;
-
 	sf::Vector2f position;
 	float rotation;
+	float dt;
 
-	void Update(const UpdateMessage& m)
+	PlayerStateFrame(const UpdateMessage& m)
 	{
 		position.x = m.x;
 		position.y = m.y;
 		rotation = m.rotation;
+		dt = m.dt;
 	}
 };
 
@@ -241,4 +242,4 @@ struct BlockState
 
 
 bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile);
-bool PlayerProjectileCollision(PlayerState* player, ProjectileState* projectile);
+bool PlayerProjectileCollision(PlayerStateFrame* player, ProjectileState* projectile);

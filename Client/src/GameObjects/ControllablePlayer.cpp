@@ -57,8 +57,24 @@ void ControllablePlayer::SettingsGUI()
 sf::Vector2f ControllablePlayer::Automove(float dt)
 {
 	static float t = 0;
+	static float directionX = 1.0f;
+	static float directionY = 1.0f;
+	static float timerX = 2.0f;
+	static float timerY = 1.5f;
 
-	sf::Vector2f velocity{ 0, 2.0f * cosf(2.0f * t) };
+	sf::Vector2f velocity{ dt * directionX * PLAYER_MOVE_SPEED, dt * directionY * PLAYER_MOVE_SPEED };
+
 	t += dt;
+	if (t > timerX)
+	{
+		timerX += 1.5f;
+		directionX = -directionX;
+	}
+	if (t > timerY)
+	{
+		timerY += 2.0f;
+		directionY = -directionY;
+	}
+
 	return velocity;
 }

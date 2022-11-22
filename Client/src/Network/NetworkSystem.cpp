@@ -265,6 +265,9 @@ void NetworkSystem::ProcessOutgoingUdp(float dt)
 	{
 		m_UpdateTimer = 0.0f;
 
+		float dt = std::max(0.0f, m_SimulationTime - m_LastUpdateTime);
+		m_LastUpdateTime = m_SimulationTime;
+
 		// send an update to the server
 		MessageHeader header = CreateHeader(MessageCode::Update);
 
@@ -273,7 +276,8 @@ void NetworkSystem::ProcessOutgoingUdp(float dt)
 		{
 			m_ClientID,
 			playerPos.x, playerPos.y,
-			m_Player->getRotation()
+			m_Player->getRotation(),
+			dt
 		};
 
 		sf::Packet packet;

@@ -7,8 +7,16 @@
 // server properties
 extern const unsigned short SERVER_PORT;
 
+// how long a client has to not send a message for to be considered disconnected
 extern const float IDLE_TIMEOUT;
+// how often messages are sent client->server and server->client
 extern const float UPDATE_FREQUENCY;
+// if a player travels a distance greater than this in a single UPDATE_FREQUENCY,
+// then they are considered to have been forcibly teleported
+// so do not interpolate them
+extern const float MAX_MOVE_DISTANCE;
+// the length of time (in seconds) of state history to retain for players, both on server and clients
+extern const float STATE_HISTORY_DURATION;
 
 // max game objects (these are used as stack-allocated array dimensions, so cannot be marked as extern and compiled in a different compilation unit)
 const sf::Uint8 MAX_NUM_PLAYERS = 16;

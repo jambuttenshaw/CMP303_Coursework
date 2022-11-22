@@ -61,8 +61,8 @@ private:
 	ProjectileID NextProjectileID();
 	BlockID NextBlockID();
 
-	bool VerifyProjecitleShoot(const sf::Vector2f& position, const PlayerState& player);
-	bool VerifyBlockPlacement(const sf::Vector2f& position, const PlayerState& player);
+	bool VerifyProjecitleShoot(const sf::Vector2f& position, const PlayerStateFrame& player);
+	bool VerifyBlockPlacement(const sf::Vector2f& position, const PlayerStateFrame& player, PlayerTeam team);
 
 	bool OnTeamTurf(const sf::Vector2f& p, PlayerTeam team);
 	
@@ -81,6 +81,7 @@ private:
 
 	sf::Clock m_ServerClock;
 	float m_SimulationTime = 0.0f;
+	float m_UpdateTimer = 0.0f;
 
 	// gameplay
 	unsigned int m_RedTeamPlayerCount = 0, m_BlueTeamPlayerCount = 0;
