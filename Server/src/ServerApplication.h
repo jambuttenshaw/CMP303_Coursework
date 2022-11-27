@@ -52,9 +52,19 @@ private:
 
 		auto status = m_UdpSocket.send(packet, client->GetIP(), client->GetUdpPort());
 		if (status != sf::Socket::Done)
-		{
 			LOG_ERROR("Failed to send udp packet to client ID: {}", client->GetID());
-		}
+	}
+	void SendMessageToClientUdp(Connection* client, MessageCode code)
+	{
+		if (!client->CanSendUdp()) return;
+
+		sf::Packet packet;
+		MessageHeader header{ client->GetID(), code };
+		packet << header;
+
+		auto status = m_UdpSocket.send(packet, client->GetIP(), client->GetUdpPort());
+		if (status != sf::Socket::Done)
+			LOG_ERROR("Failed to send udp packet to client ID: {}", client->GetID());
 	}
 
 	ClientID NextClientID();
@@ -82,6 +92,7 @@ private:
 	sf::Clock m_ServerClock;
 	float m_SimulationTime = 0.0f;
 	float m_UpdateTimer = 0.0f;
+	float m_PingTimer = 0.0f;
 
 	// gameplay
 	unsigned int m_RedTeamPlayerCount = 0, m_BlueTeamPlayerCount = 0;

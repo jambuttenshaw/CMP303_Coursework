@@ -33,7 +33,8 @@ enum class MessageCode : sf::Uint8
 	ProjectilesDestroyed,	// Announce a projectile has been destroyed (S->C)
 	BlocksDestroyed,		// Announce a block has been destroyed (S->C)
 	
-	GetServerTime			// Calculate latency between client and server to update clients simulation timer (C<->S)
+	GetServerTime,			// Calculate latency between client and server to update clients simulation timer (C<->S)
+	Ping					// Calculate a clients latency
 };
 sf::Packet& operator <<(sf::Packet& packet, const MessageCode& mc);
 sf::Packet& operator >>(sf::Packet& packet, MessageCode& mc);
@@ -129,6 +130,7 @@ sf::Packet& operator >>(sf::Packet& packet, ServerTimeMessage& message);
 struct ShootMessage
 {
 	ProjectileID id;
+	ClientID shotBy; // the client that shot the projectile
 	PlayerTeam team; // the team the projectile belongs to
 	float x; // projectile origin
 	float y;
@@ -150,6 +152,7 @@ sf::Packet& operator >>(sf::Packet& packet, ProjectilesDestroyedMessage& message
 struct PlaceMessage
 {
 	BlockID id;
+	ClientID placedBy;
 	PlayerTeam team;
 	float x;
 	float y;
@@ -200,22 +203,43 @@ struct PlayerStateFrame
 struct ProjectileState
 {
 	ProjectileID id;
+	ClientID shotBy;
 	PlayerTeam team;
 
 	sf::Vector2f position;
+
+	sf::Vector2f initPosition;
 	sf::Vector2f direction;
+
+	float serverShootTime; // the sim time when the projectile was shot (local to the client that shot it)
+	float clientShootTime; // when the server recieved the request to shoot a projectile, and when the projectile was actually created
 
 	ProjectileState(ShootMessage shootMessage)
 	{
 		id = shootMessage.id;
+		shotBy = shootMessage.shotBy;
 		team = shootMessage.team;
 		position = { shootMessage.x, shootMessage.y };
+		initPosition = position;
 		direction = { shootMessage.dirX, shootMessage.dirY };
+		serverShootTime = 0.0f;
+		clientShootTime = 0.0f;
 	}
 
 	void Step(float dt)
 	{
 		position += direction * PROJECTILE_MOVE_SPEED * dt;
+	}
+
+	sf::Vector2f PositionAtServerTime(float t)
+	{
+		float dt = t - serverShootTime;
+		return initPosition + direction * (PROJECTILE_MOVE_SPEED * dt);
+	}
+	sf::Vector2f PositionAtClientTime(float t)
+	{
+		float dt = t - clientShootTime;
+		return initPosition + direction * (PROJECTILE_MOVE_SPEED * dt);
 	}
 };
 
@@ -242,4 +266,4 @@ struct BlockState
 
 
 bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile);
-bool PlayerProjectileCollision(PlayerStateFrame* player, ProjectileState* projectile);
+bool PlayerProjectileCollision(const sf::Vector2f& playerPos, const sf::Vector2f& projectilePos);

@@ -14,7 +14,9 @@ public:
 	inline BlockID GetID() const { return m_BlockID; }
 	inline PlayerTeam GetTeam() const { return m_Team; }
 
+	inline void UpdateID(BlockID id) { m_BlockID = id; }
+
 private:
-	const BlockID m_BlockID;
+	BlockID m_BlockID;
 	const PlayerTeam m_Team;
 };

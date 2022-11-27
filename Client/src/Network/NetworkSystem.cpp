@@ -185,6 +185,7 @@ void NetworkSystem::RequestShoot(const sf::Vector2f& position, const sf::Vector2
 	ShootMessage shootMessage
 	{
 		INVALID_PROJECTILE_ID, // will be assigned by server
+		m_ClientID,
 		m_Player->GetTeam(), 
 		position.x, position.y,
 		direction.x, direction.y,
@@ -194,6 +195,11 @@ void NetworkSystem::RequestShoot(const sf::Vector2f& position, const sf::Vector2
 	sf::Packet packet;
 	packet << header << shootMessage;
 	SendPacketToServerTcp(packet);
+
+	// spawn the local copy of the projectile
+	Projectile* localProjectile = new Projectile(shootMessage.id, shootMessage.team, { shootMessage.x, shootMessage.y }, { shootMessage.dirX, shootMessage.dirY });
+	m_Projectiles->push_back(localProjectile);
+	m_LocalProjectiles.push(localProjectile);
 }
 
 void NetworkSystem::RequestPlaceBlock(const sf::Vector2f& position)
@@ -205,6 +211,7 @@ void NetworkSystem::RequestPlaceBlock(const sf::Vector2f& position)
 	PlaceMessage placeMessage
 	{
 		INVALID_BLOCK_ID, // will be assigned by server
+		m_ClientID,
 		m_Player->GetTeam(),
 		position.x, position.y
 	};
@@ -212,6 +219,10 @@ void NetworkSystem::RequestPlaceBlock(const sf::Vector2f& position)
 	sf::Packet packet;
 	packet << header << placeMessage;
 	SendPacketToServerTcp(packet);
+
+	Block* localBlock = new Block(placeMessage.id, placeMessage.team, { placeMessage.x, placeMessage.y });
+	m_Blocks->push_back(localBlock);
+	m_LocalBlocks.push(localBlock);
 }
 
 void NetworkSystem::SyncSimulationTime()
@@ -247,6 +258,7 @@ void NetworkSystem::ProcessIncomingUdp()
 		switch (header.messageCode)
 		{
 		case MessageCode::Update:		OnRecieveUpdate(header, packet); break;
+		case MessageCode::Ping:			SendPing(); break;
 		default:						LOG_WARN("Received unexpected message code!"); break;
 		}
 	}
@@ -312,14 +324,14 @@ void NetworkSystem::ProcessIncomingTcp()
 		case MessageCode::GetServerTime:		OnServerTimeUpdate		(header, packet); break;
 		case MessageCode::Shoot:				OnShoot					(header, packet); break;
 		case MessageCode::ProjectilesDestroyed:	OnProjectilesDestroyed	(header, packet); break;
+		case MessageCode::ShootRequestDenied:	OnShootRequestDenied	(header, packet); break;
 		case MessageCode::Place:				OnPlace					(header, packet); break;
 		case MessageCode::BlocksDestroyed:		OnBlocksDestroyed		(header, packet); break;
+		case MessageCode::PlaceRequestDenied:	OnPlaceRequestDenied	(header, packet); break;
 		case MessageCode::ChangeGameState:		OnChangeGameState		(header, packet); break;
 		case MessageCode::TurfLineMoved:		OnTurfLineMoved			(header, packet); break;
 		case MessageCode::PlayerDeath:			OnPlayerDeath			(header, packet); break;
 		case MessageCode::GameStart:			OnGameStart				(header, packet); break;
-		case MessageCode::ShootRequestDenied:	break;
-		case MessageCode::PlaceRequestDenied:	break;
 		default:								LOG_WARN("Recieved unexpected message code"); break;
 		}
 
@@ -460,10 +472,18 @@ void NetworkSystem::OnOtherPlayerDisconnect(const MessageHeader& header, sf::Pac
 void NetworkSystem::OnRecieveUpdate(const MessageHeader& header, sf::Packet& packet)
 {
 	UpdateMessage messageBody;
-	packet >> messageBody;
 
-	NetworkPlayer* player = FindNetworkPlayerWithID(messageBody.playerID);
-	if (player) player->NetworkUpdate(messageBody, m_SimulationTime);
+	// packet will contain updates for potentially multiple players
+	// loop while the packet still contains data
+	while (!packet.endOfPacket())
+	{
+		packet >> messageBody;
+
+		if (messageBody.playerID == m_ClientID) continue;
+
+		NetworkPlayer* player = FindNetworkPlayerWithID(messageBody.playerID);
+		if (player) player->NetworkUpdate(messageBody, m_SimulationTime);
+	}
 }
 
 void NetworkSystem::OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& packet)
@@ -500,9 +520,20 @@ void NetworkSystem::OnShoot(const MessageHeader& header, sf::Packet& packet)
 	ShootMessage shootMessage;
 	packet >> shootMessage;
 
-	// create projectile object
-	Projectile* newProjectile = new Projectile(shootMessage.id, shootMessage.team, { shootMessage.x, shootMessage.y }, { shootMessage.dirX, shootMessage.dirY} );
-	m_Projectiles->push_back(newProjectile);
+	// did we shoot this projectile
+	if (shootMessage.shotBy == m_ClientID)
+	{
+		// shoot request confirmed
+		m_LocalProjectiles.front()->UpdateID(shootMessage.id);
+		m_LocalProjectiles.pop();
+	}
+	else
+	{
+		// someone else shot this projectile
+		// spawn it in
+		Projectile* newProjectile = new Projectile(shootMessage.id, shootMessage.team, { shootMessage.x, shootMessage.y }, { shootMessage.dirX, shootMessage.dirY });
+		m_Projectiles->push_back(newProjectile);
+	}
 }
 
 void NetworkSystem::OnProjectilesDestroyed(const MessageHeader& header, sf::Packet& packet)
@@ -527,14 +558,39 @@ void NetworkSystem::OnProjectilesDestroyed(const MessageHeader& header, sf::Pack
 	}
 }
 
+void NetworkSystem::OnShootRequestDenied(const MessageHeader&, sf::Packet&)
+{
+	if (m_LocalProjectiles.empty()) return;
+
+	for (auto it = m_Projectiles->begin(); it != m_Projectiles->end(); it++)
+	{
+		if (*it == m_LocalProjectiles.front())
+		{
+			delete m_LocalProjectiles.front();
+			m_Projectiles->erase(it);
+			break;
+		}
+	}
+
+	m_LocalProjectiles.pop();
+}
+
 void NetworkSystem::OnPlace(const MessageHeader& header, sf::Packet& packet)
 {
 	PlaceMessage placeMessage;
 	packet >> placeMessage;
 
 	// create block
-	Block* newBlock = new Block(placeMessage.id, placeMessage.team, { placeMessage.x, placeMessage.y });
-	m_Blocks->push_back(newBlock);
+	if (placeMessage.placedBy == m_ClientID)
+	{
+		m_LocalBlocks.front()->UpdateID(placeMessage.id);
+		m_LocalBlocks.pop();
+	}
+	else
+	{
+		Block* newBlock = new Block(placeMessage.id, placeMessage.team, { placeMessage.x, placeMessage.y });
+		m_Blocks->push_back(newBlock);
+	}
 }
 
 void NetworkSystem::OnBlocksDestroyed(const MessageHeader& header, sf::Packet& packet)
@@ -557,6 +613,23 @@ void NetworkSystem::OnBlocksDestroyed(const MessageHeader& header, sf::Packet& p
 		if (!blockDestroyed)
 			it++;
 	}
+}
+
+void NetworkSystem::OnPlaceRequestDenied(const MessageHeader&, sf::Packet&)
+{
+	if (m_LocalBlocks.empty()) return;
+
+	for (auto it = m_Blocks->begin(); it != m_Blocks->end(); it++)
+	{
+		if (*it == m_LocalBlocks.front())
+		{
+			delete m_LocalBlocks.front();
+			m_Blocks->erase(it);
+			break;
+		}
+	}
+
+	m_LocalBlocks.pop();
 }
 
 void NetworkSystem::OnChangeGameState(const MessageHeader& header, sf::Packet& packet)
@@ -610,6 +683,14 @@ void NetworkSystem::OnGameStart(const MessageHeader& header, sf::Packet& packet)
 	m_ChangeTurfLineFunc(0.5f * WORLD_WIDTH);
 
 	m_GameStartRequested = false;
+}
+
+void NetworkSystem::SendPing()
+{
+	MessageHeader header{ m_ClientID, MessageCode::Ping };
+	sf::Packet p;
+	p << header;
+	SendPacketToServerUdp(p);
 }
 
 

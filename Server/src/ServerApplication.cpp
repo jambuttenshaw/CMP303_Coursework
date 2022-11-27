@@ -124,6 +124,7 @@ void ServerApplication::Run()
 				case MessageCode::TurfLineMoved:
 														LOG_WARN("Received invalid message code"); break;
 				case MessageCode::Update:						  
+				case MessageCode::Ping:
 														LOG_WARN("Received update message via TCP; updates should be sent via UDP"); break;
 
 				default:								LOG_WARN("Unknown message code: {}", static_cast<int>(header.messageCode)); break;
@@ -154,6 +155,7 @@ void ServerApplication::Run()
 				switch (header.messageCode)
 				{
 				case MessageCode::Update:	ProcessUpdate(client, header, packet); break;
+				case MessageCode::Ping:		client->CalculateLatency(m_SimulationTime); break;
 				default:					LOG_WARN("Received unexpected message code"); break;
 				}
 			}
@@ -163,28 +165,52 @@ void ServerApplication::Run()
 		m_UpdateTimer += dt;
 		if (m_UpdateTimer > UPDATE_FREQUENCY)
 		{
-			for (auto& sendingClient : m_Clients)
-			{
-				if (sendingClient->StateQueueEmpty()) continue;
+			// create a packet containing all update data
+			std::vector<UpdateMessage> allUpdateData(m_Clients.size());
 
-				PlayerStateFrame& ps = sendingClient->GetCurrentPlayerState();
-				UpdateMessage updateMessage
+			int i = 0;
+			for (auto& client : m_Clients)
+			{
+				if (client->StateQueueEmpty()) continue;
+
+				PlayerStateFrame& ps = client->GetCurrentPlayerState();
+				allUpdateData[i] =
 				{
-					sendingClient->GetID(),
+					client->GetID(),
 					ps.position.x,
-					ps.position.y,
+					ps.position.y, 
 					ps.rotation,
 					ps.dt
 				};
+				i++;
+			}
 
-				for (auto& receivingClient : m_Clients)
-				{
-					if (receivingClient->GetID() == sendingClient->GetID()) continue; // dont send a client their own data
-					SendMessageToClientUdp(receivingClient, MessageCode::Update, updateMessage);
-				}
+			for (auto& client : m_Clients)
+			{
+				MessageHeader header{ client->GetID(), MessageCode::Update };
+				sf::Packet packet;
+				packet << header;
+				for (auto& updateMessage : allUpdateData) packet << updateMessage;
+					
+				auto status = m_UdpSocket.send(packet, client->GetIP(), client->GetUdpPort());
+				if (status != sf::Socket::Done)
+					LOG_ERROR("Failed to send udp packet to client ID: {}", client->GetID());
 			}
 
 			m_UpdateTimer = 0.0f;
+		}
+
+		// ping clients to measure latency frequently
+		m_PingTimer += dt;
+		if (m_PingTimer > PING_FREQUENCY)
+		{
+			// send a ping to all clients
+			for (auto client : m_Clients)
+			{
+				client->BeginPing(m_SimulationTime);
+				SendMessageToClientUdp(client, MessageCode::Ping);
+			}
+			m_PingTimer = 0.0f;
 		}
 	}
 }
@@ -223,37 +249,47 @@ void ServerApplication::SimulateGameObjects(float dt)
 
 		// check if this projectile has hit a player
 		bool hitPlayer = false;
+
+		// perform projectile collision calculations in the time frame of the player that shot the projectile
+		
+		// how much in the future the client that shot the projectile sees the projectile
+		float timeDifference = projectile->serverShootTime - projectile->clientShootTime;
+		// work out where the projectile will be at the current time plus the time difference
+		sf::Vector2f projPos = projectile->PositionAtServerTime(m_SimulationTime + timeDifference);
+
 		for (auto client : m_Clients)
 		{
-			auto player = client->GetCurrentPlayerState();
-			if (PlayerProjectileCollision(&player, projectile))
+			if (client->GetPlayerTeam() == projectile->team) continue;
+
+			float shooterLatency = FindClientWithID(projectile->shotBy)->GetLatency();
+			auto playerPos = client->GetPastPlayerPos(shooterLatency + client->GetLatency());
+			auto delta = playerPos - client->GetCurrentPlayerState().position;
+
+			if (PlayerProjectileCollision(client->GetCurrentPlayerState().position, projectile->position))
 			{
-				if (client->GetPlayerTeam() != projectile->team)
+				hitPlayer = true;
+
+				// kill player
+				client->SendMessageTcp(MessageCode::PlayerDeath);
+
+				// move turf line
+				m_TurfLine += BLOCK_SIZE * (projectile->team == PlayerTeam::Red ? 1 : - 1);
+				// check win condition
+				if (m_TurfLine <= SPAWN_WIDTH || m_TurfLine >= WORLD_WIDTH - SPAWN_WIDTH)
 				{
-					hitPlayer = true;
-
-					// kill player
-					client->SendMessageTcp(MessageCode::PlayerDeath);
-
-					// move turf line
-					m_TurfLine += BLOCK_SIZE * (projectile->team == PlayerTeam::Red ? 1 : - 1);
-					// check win condition
-					if (m_TurfLine <= SPAWN_WIDTH || m_TurfLine >= WORLD_WIDTH - SPAWN_WIDTH)
-					{
-						EndGame();
-						gameOver = true;
-					}
-
-					// transmit turf move to all players
-					for (auto c2 : m_Clients)
-					{
-						TurfLineMoveMessage message{ m_TurfLine };
-						c2->SendMessageTcp(MessageCode::TurfLineMoved, message);
-					}
-
-					// moving the turf line may destroy a bunch of blocks
-					CheckForBlocksAcrossTurfLine();
+					EndGame();
+					gameOver = true;
 				}
+
+				// transmit turf move to all players
+				for (auto c2 : m_Clients)
+				{
+					TurfLineMoveMessage message{ m_TurfLine };
+					c2->SendMessageTcp(MessageCode::TurfLineMoved, message);
+				}
+
+				// moving the turf line may destroy a bunch of blocks
+				CheckForBlocksAcrossTurfLine();
 
 				break;
 			}
@@ -548,6 +584,8 @@ void ServerApplication::ProcessShootRequest(Connection* client, const MessageHea
 		shootMessage.id = NextProjectileID();
 
 		ProjectileState* newProjectile = new ProjectileState(shootMessage);
+		newProjectile->serverShootTime = m_SimulationTime;
+		newProjectile->clientShootTime = m_SimulationTime - client->GetLatency();
 		m_Projectiles.push_back(newProjectile);
 
 		// tell all clients a projectile has been shot

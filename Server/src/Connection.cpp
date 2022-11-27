@@ -14,6 +14,31 @@ Connection::~Connection()
 	m_Socket.disconnect();
 }
 
+sf::Vector2f Connection::GetPastPlayerPos(float t)
+{
+	assert(t < STATE_HISTORY_DURATION && "Can't see that far into the past");
+
+	// find out which two states in the history t is between
+	float t0 = 0.0f;
+	size_t frameIndex = 0;
+	for (auto& frame : m_PlayerStateHistory)
+	{
+		// does the next frame take us too far back
+		if (t0 + frame.dt > t) break;
+
+		t0 += frame.dt;
+		frameIndex++;
+	}
+
+	// now we need to interpolate between frames in the history
+	PlayerStateFrame& frame0 = m_PlayerStateHistory[frameIndex];
+	PlayerStateFrame& frame1 = m_PlayerStateHistory[frameIndex + 1];
+
+	// how much to interpolate?
+	float interpolation = (t - t0) / frame0.dt;
+	return Lerp(frame0.position, frame1.position, interpolation);
+}
+
 void Connection::AddToStateQueue(const UpdateMessage& updateMessage)
 {
 	PlayerStateFrame newStateFrame{ updateMessage };

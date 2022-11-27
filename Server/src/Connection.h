@@ -27,6 +27,8 @@ public:
 
 	inline bool StateQueueEmpty() const { return m_PlayerStateHistory.empty(); }
 	inline PlayerStateFrame& GetCurrentPlayerState() { assert(m_PlayerStateHistory.size() > 0 && "State history is empty!");  return m_PlayerStateHistory[0]; }
+	// get the player's state t seconds ago
+	sf::Vector2f GetPastPlayerPos(float t);
 	void AddToStateQueue(const UpdateMessage& updateMessage);
 
 	inline bool IsReady() const { return m_Ready; }
@@ -47,6 +49,10 @@ public:
 		SendPacketTcp(packet);
 	}
 
+	inline void BeginPing(float t) { m_BeginPingTime = t; }
+	inline void CalculateLatency(float t) { m_Latency = t - m_BeginPingTime; }
+	inline float GetLatency() const { return m_Latency; }
+
 private:
 
 	float CalculateHistoryDuration();
@@ -61,6 +67,9 @@ private:
 	sf::IpAddress m_ClientIP = sf::IpAddress::None;
 	unsigned short m_TcpPort = -1;
 	unsigned short m_UdpPort = -1;
+
+	float m_BeginPingTime = 0.0f;
+	float m_Latency = 0.0f;
 
 	// in-game player properties
 	PlayerTeam m_PlayerTeam = PlayerTeam::None;

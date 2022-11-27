@@ -11,6 +11,8 @@ extern const unsigned short SERVER_PORT;
 extern const float IDLE_TIMEOUT;
 // how often messages are sent client->server and server->client
 extern const float UPDATE_FREQUENCY;
+// how often the server measures client latencey
+extern const float PING_FREQUENCY;
 // if a player travels a distance greater than this in a single UPDATE_FREQUENCY,
 // then they are considered to have been forcibly teleported
 // so do not interpolate them

@@ -219,9 +219,36 @@ void ClientApplication::Update(float dt)
     m_Indicator.setPosition(m_Player.getPosition());
     m_Indicator.Update();
 
-    // update projectiles
-    for (auto projectile : m_Projectiles)
+    // simulate projectiles
+    for (auto proj_it = m_Projectiles.begin(); proj_it != m_Projectiles.end();)
+    {
+        auto projectile = *proj_it;
         projectile->Update(dt);
+
+        // check if the projectile has hit a block
+        bool hitBlock = false;
+        for (auto block_it = m_Blocks.begin(); block_it != m_Blocks.end(); block_it++)
+        {
+            // dont collide with local blocks (not that this should really ever happen anyway...)
+            if ((*block_it)->GetID() == INVALID_BLOCK_ID) continue;
+            
+            if (projectile->getGlobalBounds().intersects((*block_it)->getGlobalBounds()))
+            {
+                hitBlock = true;
+                break;
+            }
+        }
+
+        auto p = projectile->getPosition();
+        if (hitBlock || p.x - PROJECTILE_RADIUS < 0 || p.x + PROJECTILE_RADIUS > WORLD_WIDTH
+                     || p.y - PROJECTILE_RADIUS < 0 || p.y + PROJECTILE_RADIUS > WORLD_HEIGHT)
+        {
+            // projectile is out of bounds
+            proj_it = m_Projectiles.erase(proj_it);
+        }
+        else
+            proj_it++;
+    }
 
     // network
     m_NetworkSystem.Update(dt);

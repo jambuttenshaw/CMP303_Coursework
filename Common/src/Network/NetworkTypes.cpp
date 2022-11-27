@@ -1,17 +1,21 @@
 #include "NetworkTypes.h"
 
 #include "MathUtils.h"
+#include "Log.h"
+
+#define CHECK_PACKET_ERROR(v) CHECK_ERROR(v, "Packet operation failed!")
 
 
 sf::Packet& operator <<(sf::Packet& packet, const MessageCode& mc)
 {
-	return packet << static_cast<sf::Uint8>(mc);
+	CHECK_PACKET_ERROR(packet << static_cast<sf::Uint8>(mc));
+	return packet;
 }
 
 sf::Packet& operator >>(sf::Packet& packet, MessageCode& mc)
 {
 	sf::Uint8 mc_int;
-	packet >> mc_int;
+	CHECK_PACKET_ERROR(packet >> mc_int);
 
 	mc = static_cast<MessageCode>(mc_int);
 	return packet;
@@ -20,12 +24,14 @@ sf::Packet& operator >>(sf::Packet& packet, MessageCode& mc)
 
 sf::Packet& operator<<(sf::Packet& packet, const MessageHeader& header)
 {
-	return packet << header.clientID << header.messageCode;
+	CHECK_PACKET_ERROR(packet << header.clientID << header.messageCode);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, MessageHeader& header)
 {
-	return packet >> header.clientID >> header.messageCode;
+	CHECK_PACKET_ERROR(packet >> header.clientID >> header.messageCode);
+	return packet;
 }
 
 
@@ -36,166 +42,196 @@ MESSAGE BODIES
 
 sf::Packet& operator<<(sf::Packet& packet, const IntroductionMessage& message)
 {
-	return packet << message.udpPort;
+	CHECK_PACKET_ERROR(packet << message.udpPort);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, IntroductionMessage& message)
 {
-	return packet >> message.udpPort;
+	CHECK_PACKET_ERROR(packet >> message.udpPort);
+	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const ConnectMessage& message)
 {
-	packet << message.playerNumber << message.team << message.numPlayers;
+	CHECK_PACKET_ERROR(packet << message.playerNumber << message.team << message.numPlayers);
+
 	for (unsigned int i = 0; i < message.numPlayers; i++)
-		packet << message.playerIDs[i] << message.playerTeams[i];
-	packet << message.numBlocks;
+		CHECK_PACKET_ERROR(packet << message.playerIDs[i] << message.playerTeams[i]);
+
+	CHECK_PACKET_ERROR(packet << message.numBlocks);
+
 	for (unsigned int i = 0; i < message.numBlocks; i++)
-		packet << message.blockIDs[i] << message.blockTeams[i] << message.blockXs[i] << message.blockYs[i];
-	packet << message.gameState << message.remainingStateDuration << message.turfLine;
+		CHECK_PACKET_ERROR(packet << message.blockIDs[i] << message.blockTeams[i] << message.blockXs[i] << message.blockYs[i]);
+
+	CHECK_PACKET_ERROR(packet << message.gameState << message.remainingStateDuration << message.turfLine);
+
 	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, ConnectMessage& message)
 {
-	packet >> message.playerNumber >> message.team >>  message.numPlayers;
+	CHECK_PACKET_ERROR(packet >> message.playerNumber >> message.team >>  message.numPlayers);
+
 	for (unsigned int i = 0; i < message.numPlayers; i++)
-		packet >> message.playerIDs[i] >> message.playerTeams[i];
-	packet >> message.numBlocks;
+		CHECK_PACKET_ERROR(packet >> message.playerIDs[i] >> message.playerTeams[i]);
+
+	CHECK_PACKET_ERROR(packet >> message.numBlocks);
+
 	for (unsigned int i = 0; i < message.numBlocks; i++)
-		packet >> message.blockIDs[i] >> message.blockTeams[i] >> message.blockXs[i] >> message.blockYs[i];
-	packet >> message.gameState >> message.remainingStateDuration >> message.turfLine;
+		CHECK_PACKET_ERROR(packet >> message.blockIDs[i] >> message.blockTeams[i] >> message.blockXs[i] >> message.blockYs[i]);
+
+	CHECK_PACKET_ERROR(packet >> message.gameState >> message.remainingStateDuration >> message.turfLine);
+
 	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const PlayerConnectedMessage& message)
 {
-	return packet << message.playerID << message.team;
+	CHECK_PACKET_ERROR(packet << message.playerID << message.team);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, PlayerConnectedMessage& message)
 {
-	return packet >> message.playerID >> message.team;
+	CHECK_PACKET_ERROR(packet >> message.playerID >> message.team);
+	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const PlayerDisconnectedMessage& message)
 {
-	return packet << message.playerID;
+	CHECK_PACKET_ERROR(packet << message.playerID);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, PlayerDisconnectedMessage& message)
 {
-	return packet >> message.playerID;
+	CHECK_PACKET_ERROR(packet >> message.playerID);
+	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const UpdateMessage& message)
 {
-	return packet << message.playerID << message.x << message.y << message.rotation << message.dt;
+	CHECK_PACKET_ERROR(packet << message.playerID << message.x << message.y << message.rotation << message.dt);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, UpdateMessage& message)
 {
-	return packet >> message.playerID >> message.x >> message.y >> message.rotation >> message.dt;
+	CHECK_PACKET_ERROR(packet >> message.playerID >> message.x >> message.y >> message.rotation >> message.dt);
+	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const ChangeTeamMessage& message)
 {
-	return packet << message.playerID << message.team;
+	CHECK_PACKET_ERROR(packet << message.playerID << message.team);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, ChangeTeamMessage& message)
 {
-	return packet >> message.playerID >> message.team;
+	CHECK_PACKET_ERROR(packet >> message.playerID >> message.team);
+	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const ServerTimeMessage& message)
 {
-	return packet << message.serverTime;
+	CHECK_PACKET_ERROR(packet << message.serverTime);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, ServerTimeMessage& message)
 {
-	return packet >> message.serverTime;
+	CHECK_PACKET_ERROR(packet >> message.serverTime);
+	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const ShootMessage& message)
 {
-	return packet << message.id << message.team << message.x << message.y << message.dirX << message.dirY << message.shootTime;
+	CHECK_PACKET_ERROR(packet << message.id << message.shotBy << message.team << message.x << message.y << message.dirX << message.dirY << message.shootTime);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, ShootMessage& message)
 {
-	return packet >> message.id >> message.team >> message.x >> message.y >> message.dirX >> message.dirY >> message.shootTime;
+	CHECK_PACKET_ERROR(packet >> message.id >> message.shotBy >> message.team >> message.x >> message.y >> message.dirX >> message.dirY >> message.shootTime);
+	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const ProjectilesDestroyedMessage& message)
 {
-	packet << message.count;
-	for (auto i = 0; i < message.count; i++) packet << message.ids[i];
+	CHECK_PACKET_ERROR(packet << message.count);
+	for (auto i = 0; i < message.count; i++) CHECK_PACKET_ERROR(packet << message.ids[i]);
 	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, ProjectilesDestroyedMessage& message)
 {
-	packet >> message.count;
-	for (auto i = 0; i < message.count; i++) packet >> message.ids[i];
+	CHECK_PACKET_ERROR(packet >> message.count);
+	for (auto i = 0; i < message.count; i++) CHECK_PACKET_ERROR(packet >> message.ids[i]);
 	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const PlaceMessage& message)
 {
-	return packet << message.id << message.team << message.x << message.y;
+	CHECK_PACKET_ERROR(packet << message.id << message.placedBy << message.team << message.x << message.y);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, PlaceMessage& message)
 {
-	return packet >> message.id >> message.team >> message.x >> message.y;
+	CHECK_PACKET_ERROR(packet >> message.id >> message.placedBy >> message.team >> message.x >> message.y);
+	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const BlocksDestroyedMessage& message)
 {
-	packet << message.count;
-	for (auto i = 0; i < message.count; i++) packet << message.ids[i];
+	CHECK_PACKET_ERROR(packet << message.count);
+	for (auto i = 0; i < message.count; i++) CHECK_PACKET_ERROR(packet << message.ids[i]);
 	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, BlocksDestroyedMessage& message)
 {
-	packet >> message.count;
-	for (auto i = 0; i < message.count; i++) packet >> message.ids[i];
+	CHECK_PACKET_ERROR(packet >> message.count);
+	for (auto i = 0; i < message.count; i++) CHECK_PACKET_ERROR(packet >> message.ids[i]);
 	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const ChangeGameStateMessage& message)
 {
-	return packet << message.state << message.stateDuration;
+	CHECK_PACKET_ERROR(packet << message.state << message.stateDuration);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, ChangeGameStateMessage& message)
 {
-	return packet >> message.state >> message.stateDuration;
+	CHECK_PACKET_ERROR(packet >> message.state >> message.stateDuration);
+	return packet;
 }
 
 
 sf::Packet& operator<<(sf::Packet& packet, const TurfLineMoveMessage& message)
 {
-	return packet << message.newTurfLine;
+	CHECK_PACKET_ERROR(packet << message.newTurfLine);
+	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, TurfLineMoveMessage& message)
 {
-	return packet >> message.newTurfLine;
+	CHECK_PACKET_ERROR(packet >> message.newTurfLine);
+	return packet;
 }
 
 
@@ -218,9 +254,9 @@ bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile)
 }
 
 
-bool PlayerProjectileCollision(PlayerStateFrame* player, ProjectileState* projectile)
+bool PlayerProjectileCollision(const sf::Vector2f& playerPos, const sf::Vector2f& projectilePos)
 {
-	float sqrDistanceBetweenCentres = SqrLength(player->position - projectile->position);
+	float sqrDistanceBetweenCentres = SqrLength(playerPos - projectilePos);
 	float playerRadius = 0.5f * PLAYER_SIZE;
 	return sqrDistanceBetweenCentres < (PROJECTILE_RADIUS + playerRadius)* (PROJECTILE_RADIUS + playerRadius);
 }

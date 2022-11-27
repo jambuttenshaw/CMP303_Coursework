@@ -5,6 +5,7 @@
 #include "Log.h"
 
 #include <vector>
+#include <queue>
 #include <functional>
 
 class ControllablePlayer;
@@ -66,12 +67,16 @@ private:
 	void OnServerTimeUpdate			(const MessageHeader&, sf::Packet&);
 	void OnShoot					(const MessageHeader&, sf::Packet&);
 	void OnProjectilesDestroyed		(const MessageHeader&, sf::Packet&);
+	void OnShootRequestDenied		(const MessageHeader&, sf::Packet&);
 	void OnPlace					(const MessageHeader&, sf::Packet&);
 	void OnBlocksDestroyed			(const MessageHeader&, sf::Packet&);
+	void OnPlaceRequestDenied		(const MessageHeader&, sf::Packet&);
 	void OnChangeGameState			(const MessageHeader&, sf::Packet&);
 	void OnTurfLineMoved			(const MessageHeader&, sf::Packet&);
 	void OnPlayerDeath				(const MessageHeader&, sf::Packet&);
 	void OnGameStart				(const MessageHeader&, sf::Packet&);
+
+	void SendPing();
 
 	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode }; }
 
@@ -104,8 +109,16 @@ private:
 	// pointers to game objects and game object containers
 	ControllablePlayer* m_Player = nullptr;
 	std::vector<NetworkPlayer*>* m_NetworkPlayers = nullptr;
+
 	std::vector<Projectile*>* m_Projectiles = nullptr;
+	// projectile requests are sent using tcp so we know request responses
+	// will be received in the same order as the requests were sent
+	// so we always process the local projectile at the front of the queue
+	std::queue<Projectile*> m_LocalProjectiles;
+
 	std::vector<Block*>* m_Blocks = nullptr;
+	std::queue<Block*> m_LocalBlocks;
+
 	GameState* m_GameState = nullptr;
 	std::function<void(float)> m_ChangeTurfLineFunc;
 
