@@ -141,6 +141,12 @@ void ServerApplication::Run()
 			{
 				LOG_ERROR("Error occurred while receiving messages");
 			}
+			else if (status == sf::Socket::Disconnected)
+			{
+				LOG_WARN("Client {0} unexpectedly disconnected! Closing connection...");
+				// clean up; disconnect the client
+				ProcessDisconnect(client);
+			}
 
 
 			// query idle timer
@@ -178,6 +184,10 @@ void ServerApplication::Run()
 				// also reset idle timer when any udp data is received
 				client->ResetIdleTimer();
 			}
+		}
+		else if (status == sf::Socket::Error)
+		{
+			LOG_ERROR("Error occurred while attempting to receive messages");
 		}
 
 		// update timer - sending out regular updates to all clients

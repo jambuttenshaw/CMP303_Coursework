@@ -128,6 +128,15 @@ void NetworkSystem::Update(float dt)
 				LOG_ERROR("Waiting for connect message from server, but received a different message");
 			}
 		}
+		else if (status == sf::Socket::Error)
+		{
+			LOG_ERROR("Error occurred while trying to receive data from server");
+		}
+		else if (status == sf::Socket::Disconnected)
+		{
+			LOG_WARN("Connection unexpectedly disconnected while connecting to server. Closing connection...");
+			OnDisconnect();
+		}
 	}
 }
 
@@ -272,7 +281,7 @@ void NetworkSystem::ProcessIncomingUdp()
 	}
 	else if (status == sf::Socket::Error)
 	{
-		LOG_ERROR("UDP error occurred while trying to receive from server");
+		LOG_ERROR("Error occurred while trying to receive from server");
 	}
 }
 
@@ -342,7 +351,15 @@ void NetworkSystem::ProcessIncomingTcp()
 		case MessageCode::GameStart:			OnGameStart				(); break;
 		default:								LOG_WARN("Recieved unexpected message code"); break;
 		}
-
+	}
+	else if (status == sf::Socket::Error)
+	{
+		LOG_ERROR("Error occurred while trying to recieve from server");
+	}
+	else if (status == sf::Socket::Disconnected)
+	{
+		LOG_WARN("Connection unexpectedly disconnected while connecting to server. Closing connection...");
+		OnDisconnect();
 	}
 }
 
@@ -364,9 +381,7 @@ void NetworkSystem::SendPacketToServerUdp(sf::Packet& packet)
 {
 	sf::Socket::Status status = m_UdpSocket.send(packet, m_ServerAddress, m_ServerPort);
 	if (status != sf::Socket::Done)
-	{
 		LOG_ERROR("Sending message to server failed!");
-	}
 }
 
 #pragma endregion
