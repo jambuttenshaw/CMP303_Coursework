@@ -30,14 +30,14 @@ private:
 	void DestroyBlock(BlockState* block);
 
 	void ProcessConnect();
-	void ProcessIntroduction(Connection* client, const MessageHeader& header, sf::Packet& packet);
-	void ProcessDisconnect(Connection* client, const MessageHeader& header, sf::Packet& packet);
-	void ProcessUpdate(Connection* client, const MessageHeader& header, sf::Packet& packet);
-	void ProcessChangeTeam(Connection* client, const MessageHeader& header, sf::Packet& packet);
-	void ProcessGetServerTime(Connection* client, const MessageHeader& header, sf::Packet& packet);
-	void ProcessShootRequest(Connection* client, const MessageHeader& header, sf::Packet& packet);
-	void ProcessPlaceRequest(Connection* client, const MessageHeader& header, sf::Packet& packet);
-	void ProcessGameStartRequest(Connection* client, const MessageHeader& header, sf::Packet& packet);
+	void ProcessIntroduction(Connection* client, sf::Packet& packet);
+	void ProcessDisconnect(Connection* client);
+	void ProcessUpdate(Connection* client, sf::Packet& packet);
+	void ProcessChangeTeam(Connection* client);
+	void ProcessGetServerTime(Connection* client);
+	void ProcessShootRequest(Connection* client, sf::Packet& packet);
+	void ProcessPlaceRequest(Connection* client, sf::Packet& packet);
+	void ProcessGameStartRequest(Connection* client);
 
 	Connection* FindClientWithID(ClientID id);
 

@@ -53,6 +53,10 @@ public:
 	inline void CalculateLatency(float t) { m_Latency = t - m_BeginPingTime; }
 	inline float GetLatency() const { return m_Latency; }
 
+	inline float GetIdleTimer() const { return m_IdleTimer; }
+	inline void IncreaseIdleTimer(float dt) { m_IdleTimer += dt; }
+	inline void ResetIdleTimer() { m_IdleTimer = 0.0f; }
+
 private:
 
 	float CalculateHistoryDuration();
@@ -70,6 +74,8 @@ private:
 
 	float m_BeginPingTime = 0.0f;
 	float m_Latency = 0.0f;
+
+	float m_IdleTimer = 0.0f;
 
 	// in-game player properties
 	PlayerTeam m_PlayerTeam = PlayerTeam::None;

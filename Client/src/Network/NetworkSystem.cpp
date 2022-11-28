@@ -257,7 +257,7 @@ void NetworkSystem::ProcessIncomingUdp()
 
 		switch (header.messageCode)
 		{
-		case MessageCode::Update:		OnRecieveUpdate(header, packet); break;
+		case MessageCode::Update:		OnRecieveUpdate(packet); break;
 		case MessageCode::Ping:			SendPing(); break;
 		default:						LOG_WARN("Received unexpected message code!"); break;
 		}
@@ -317,21 +317,21 @@ void NetworkSystem::ProcessIncomingTcp()
 
 		switch (header.messageCode)
 		{
-		case MessageCode::Disconnect:			OnDisconnect			(header, packet); break;
-		case MessageCode::PlayerConnected:		OnOtherPlayerConnect	(header, packet); break;
-		case MessageCode::PlayerDisconnected:	OnOtherPlayerDisconnect	(header, packet); break;
-		case MessageCode::ChangeTeam:			OnPlayerChangeTeam		(header, packet); break;
-		case MessageCode::GetServerTime:		OnServerTimeUpdate		(header, packet); break;
-		case MessageCode::Shoot:				OnShoot					(header, packet); break;
-		case MessageCode::ProjectilesDestroyed:	OnProjectilesDestroyed	(header, packet); break;
-		case MessageCode::ShootRequestDenied:	OnShootRequestDenied	(header, packet); break;
-		case MessageCode::Place:				OnPlace					(header, packet); break;
-		case MessageCode::BlocksDestroyed:		OnBlocksDestroyed		(header, packet); break;
-		case MessageCode::PlaceRequestDenied:	OnPlaceRequestDenied	(header, packet); break;
-		case MessageCode::ChangeGameState:		OnChangeGameState		(header, packet); break;
-		case MessageCode::TurfLineMoved:		OnTurfLineMoved			(header, packet); break;
-		case MessageCode::PlayerDeath:			OnPlayerDeath			(header, packet); break;
-		case MessageCode::GameStart:			OnGameStart				(header, packet); break;
+		case MessageCode::Disconnect:			OnDisconnect			(); break;
+		case MessageCode::PlayerConnected:		OnOtherPlayerConnect	(packet); break;
+		case MessageCode::PlayerDisconnected:	OnOtherPlayerDisconnect	(packet); break;
+		case MessageCode::ChangeTeam:			OnPlayerChangeTeam		(packet); break;
+		case MessageCode::GetServerTime:		OnServerTimeUpdate		(packet); break;
+		case MessageCode::Shoot:				OnShoot					(packet); break;
+		case MessageCode::ProjectilesDestroyed:	OnProjectilesDestroyed	(packet); break;
+		case MessageCode::ShootRequestDenied:	OnShootRequestDenied	(); break;
+		case MessageCode::Place:				OnPlace					(packet); break;
+		case MessageCode::BlocksDestroyed:		OnBlocksDestroyed		(packet); break;
+		case MessageCode::PlaceRequestDenied:	OnPlaceRequestDenied	(); break;
+		case MessageCode::ChangeGameState:		OnChangeGameState		(packet); break;
+		case MessageCode::TurfLineMoved:		OnTurfLineMoved			(packet); break;
+		case MessageCode::PlayerDeath:			OnPlayerDeath			(); break;
+		case MessageCode::GameStart:			OnGameStart				(); break;
 		default:								LOG_WARN("Recieved unexpected message code"); break;
 		}
 
@@ -411,7 +411,7 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 }
 
 
-void NetworkSystem::OnDisconnect(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnDisconnect()
 {
 	m_ConnectionState = ConnectionState::Disconnected;
 	m_ClientID = INVALID_CLIENT_ID;
@@ -434,7 +434,7 @@ void NetworkSystem::OnDisconnect(const MessageHeader& header, sf::Packet& packet
 	LOG_INFO("Disconnected");
 }
 
-void NetworkSystem::OnOtherPlayerConnect(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnOtherPlayerConnect(sf::Packet& packet)
 {
 	// extract message body
 	PlayerConnectedMessage messageBody;
@@ -447,7 +447,7 @@ void NetworkSystem::OnOtherPlayerConnect(const MessageHeader& header, sf::Packet
 	m_NetworkPlayers->push_back(newPlayer);
 }
 
-void NetworkSystem::OnOtherPlayerDisconnect(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnOtherPlayerDisconnect(sf::Packet& packet)
 {
 	// extract message body
 	PlayerDisconnectedMessage messageBody;
@@ -469,7 +469,7 @@ void NetworkSystem::OnOtherPlayerDisconnect(const MessageHeader& header, sf::Pac
 		LOG_WARN("Player {} doesn't exist!", messageBody.playerID);
 }
 
-void NetworkSystem::OnRecieveUpdate(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnRecieveUpdate(sf::Packet& packet)
 {
 	UpdateMessage messageBody;
 
@@ -486,7 +486,7 @@ void NetworkSystem::OnRecieveUpdate(const MessageHeader& header, sf::Packet& pac
 	}
 }
 
-void NetworkSystem::OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnPlayerChangeTeam(sf::Packet& packet)
 {
 	ChangeTeamMessage messageBody;
 	packet >> messageBody;
@@ -503,7 +503,7 @@ void NetworkSystem::OnPlayerChangeTeam(const MessageHeader& header, sf::Packet& 
 	}
 }
 
-void NetworkSystem::OnServerTimeUpdate(const MessageHeader&, sf::Packet& packet)
+void NetworkSystem::OnServerTimeUpdate(sf::Packet& packet)
 {
 	// measure round trip time
 	float latency = m_SimulationTime - m_LatencyPingBegin;
@@ -514,7 +514,7 @@ void NetworkSystem::OnServerTimeUpdate(const MessageHeader&, sf::Packet& packet)
 	m_SimulationTime = messageBody.serverTime - (0.5f * latency);
 }
 
-void NetworkSystem::OnShoot(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnShoot(sf::Packet& packet)
 {
 	// extract message body
 	ShootMessage shootMessage;
@@ -536,7 +536,7 @@ void NetworkSystem::OnShoot(const MessageHeader& header, sf::Packet& packet)
 	}
 }
 
-void NetworkSystem::OnProjectilesDestroyed(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnProjectilesDestroyed(sf::Packet& packet)
 {
 	ProjectilesDestroyedMessage message;
 	packet >> message;
@@ -558,7 +558,7 @@ void NetworkSystem::OnProjectilesDestroyed(const MessageHeader& header, sf::Pack
 	}
 }
 
-void NetworkSystem::OnShootRequestDenied(const MessageHeader&, sf::Packet&)
+void NetworkSystem::OnShootRequestDenied()
 {
 	if (m_LocalProjectiles.empty()) return;
 
@@ -575,7 +575,7 @@ void NetworkSystem::OnShootRequestDenied(const MessageHeader&, sf::Packet&)
 	m_LocalProjectiles.pop();
 }
 
-void NetworkSystem::OnPlace(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnPlace(sf::Packet& packet)
 {
 	PlaceMessage placeMessage;
 	packet >> placeMessage;
@@ -593,7 +593,7 @@ void NetworkSystem::OnPlace(const MessageHeader& header, sf::Packet& packet)
 	}
 }
 
-void NetworkSystem::OnBlocksDestroyed(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnBlocksDestroyed(sf::Packet& packet)
 {
 	BlocksDestroyedMessage message;
 	packet >> message;
@@ -615,7 +615,7 @@ void NetworkSystem::OnBlocksDestroyed(const MessageHeader& header, sf::Packet& p
 	}
 }
 
-void NetworkSystem::OnPlaceRequestDenied(const MessageHeader&, sf::Packet&)
+void NetworkSystem::OnPlaceRequestDenied()
 {
 	if (m_LocalBlocks.empty()) return;
 
@@ -632,7 +632,7 @@ void NetworkSystem::OnPlaceRequestDenied(const MessageHeader&, sf::Packet&)
 	m_LocalBlocks.pop();
 }
 
-void NetworkSystem::OnChangeGameState(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnChangeGameState(sf::Packet& packet)
 {
 	ChangeGameStateMessage message;
 	packet >> message;
@@ -660,7 +660,7 @@ void NetworkSystem::OnChangeGameState(const MessageHeader& header, sf::Packet& p
 	}
 }
 
-void NetworkSystem::OnTurfLineMoved(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnTurfLineMoved(sf::Packet& packet)
 {
 	TurfLineMoveMessage message;
 	packet >> message;
@@ -668,12 +668,12 @@ void NetworkSystem::OnTurfLineMoved(const MessageHeader& header, sf::Packet& pac
 	m_ChangeTurfLineFunc(message.newTurfLine);
 }
 
-void NetworkSystem::OnPlayerDeath(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnPlayerDeath()
 {
 	GoToSpawn();
 }
 
-void NetworkSystem::OnGameStart(const MessageHeader& header, sf::Packet& packet)
+void NetworkSystem::OnGameStart()
 {
 	GoToSpawn();
 

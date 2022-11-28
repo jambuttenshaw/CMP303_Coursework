@@ -93,6 +93,9 @@ void ServerApplication::Run()
 
 		for (auto client : m_Clients)
 		{
+			// increment idle timer
+			client->IncreaseIdleTimer(dt);
+
 			// try to recieve data
 			sf::Packet packet;
 			sf::Socket::Status status = client->GetSocket().receive(packet);
@@ -104,13 +107,13 @@ void ServerApplication::Run()
 
 				switch (header.messageCode)
 				{
-				case MessageCode::Introduction:			ProcessIntroduction(client, header, packet); break;
-				case MessageCode::Disconnect:			ProcessDisconnect(client, header, packet); break;
-				case MessageCode::ChangeTeam:			ProcessChangeTeam(client, header, packet); break;
-				case MessageCode::GetServerTime:		ProcessGetServerTime(client, header, packet); break;
-				case MessageCode::Shoot:				ProcessShootRequest(client, header, packet); break;
-				case MessageCode::Place:				ProcessPlaceRequest(client, header, packet); break;
-				case MessageCode::GameStart:			ProcessGameStartRequest(client, header, packet); break;
+				case MessageCode::Introduction:			ProcessIntroduction(client, packet); break;
+				case MessageCode::Disconnect:			ProcessDisconnect(client); break;
+				case MessageCode::ChangeTeam:			ProcessChangeTeam(client); break;
+				case MessageCode::GetServerTime:		ProcessGetServerTime(client); break;
+				case MessageCode::Shoot:				ProcessShootRequest(client, packet); break;
+				case MessageCode::Place:				ProcessPlaceRequest(client, packet); break;
+				case MessageCode::GameStart:			ProcessGameStartRequest(client, packet); break;
 					// these messages are sent from the server to clients, so it would be incorrect for the server to recieve them
 				case MessageCode::Connect:
 				case MessageCode::PlayerConnected:
@@ -128,12 +131,25 @@ void ServerApplication::Run()
 														LOG_WARN("Received update message via TCP; updates should be sent via UDP"); break;
 
 				default:								LOG_WARN("Unknown message code: {}", static_cast<int>(header.messageCode)); break;
+
 				}
+
+				// reset idle timer
+				client->ResetIdleTimer();
 			}
 			else if (status == sf::Socket::Error)
 			{
 				LOG_ERROR("Error occurred while receiving messages");
 			}
+
+
+			// query idle timer
+			if (client->GetIdleTimer() > IDLE_TIMEOUT)
+			{
+				// disconnect this client for being idle
+				ProcessDisconnect(client);
+			}
+
 		}
 
 		// listen for incoming UDP data
@@ -154,10 +170,13 @@ void ServerApplication::Run()
 			{
 				switch (header.messageCode)
 				{
-				case MessageCode::Update:	ProcessUpdate(client, header, packet); break;
+				case MessageCode::Update:	ProcessUpdate(client, packet); break;
 				case MessageCode::Ping:		client->CalculateLatency(m_SimulationTime); break;
 				default:					LOG_WARN("Received unexpected message code"); break;
 				}
+
+				// also reset idle timer when any udp data is received
+				client->ResetIdleTimer();
 			}
 		}
 
@@ -485,7 +504,7 @@ void ServerApplication::ProcessConnect()
 	m_NewConnection = new Connection;
 }
 
-void ServerApplication::ProcessIntroduction(Connection* client, const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessIntroduction(Connection* client, sf::Packet& packet)
 {
 	IntroductionMessage introductionMessage;
 	packet >> introductionMessage;
@@ -494,7 +513,7 @@ void ServerApplication::ProcessIntroduction(Connection* client, const MessageHea
 
 
 
-void ServerApplication::ProcessDisconnect(Connection* client, const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessDisconnect(Connection* client)
 {
 	// acknowledge the clients requests to disconnect
 	client->SendMessageTcp(MessageCode::Disconnect);
@@ -525,7 +544,7 @@ void ServerApplication::ProcessDisconnect(Connection* client, const MessageHeade
 	delete client;
 }
 
-void ServerApplication::ProcessUpdate(Connection* client, const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessUpdate(Connection* client, sf::Packet& packet)
 {
 	// unpack packet
 	UpdateMessage updateMessage;
@@ -540,7 +559,7 @@ void ServerApplication::ProcessUpdate(Connection* client, const MessageHeader& h
 	client->AddToStateQueue(updateMessage);
 }
 
-void ServerApplication::ProcessChangeTeam(Connection* client, const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessChangeTeam(Connection* client)
 {
 	// decide if the player is allowed to change team
 	// for now always allow
@@ -566,13 +585,13 @@ void ServerApplication::ProcessChangeTeam(Connection* client, const MessageHeade
 		c->SendMessageTcp(MessageCode::ChangeTeam, changeTeamMessage);
 }
 
-void ServerApplication::ProcessGetServerTime(Connection* client, const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessGetServerTime(Connection* client)
 {
 	ServerTimeMessage response{ m_SimulationTime };
 	client->SendMessageTcp(MessageCode::GetServerTime, response);
 }
 
-void ServerApplication::ProcessShootRequest(Connection* client, const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessShootRequest(Connection* client, sf::Packet& packet)
 {
 	ShootMessage shootMessage;
 	packet >> shootMessage;
@@ -599,7 +618,7 @@ void ServerApplication::ProcessShootRequest(Connection* client, const MessageHea
 	}
 }
 
-void ServerApplication::ProcessPlaceRequest(Connection* client, const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessPlaceRequest(Connection* client, sf::Packet& packet)
 {
 	PlaceMessage placeMessage;
 	packet >> placeMessage;
@@ -623,7 +642,7 @@ void ServerApplication::ProcessPlaceRequest(Connection* client, const MessageHea
 	}
 }
 
-void ServerApplication::ProcessGameStartRequest(Connection* client, const MessageHeader& header, sf::Packet& packet)
+void ServerApplication::ProcessGameStartRequest(Connection* client)
 {
 	if (m_GameState != GameState::Lobby)
 	{

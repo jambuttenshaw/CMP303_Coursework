@@ -59,22 +59,22 @@ private:
 
 	// callbacks from messages
 	void OnConnect					(const MessageHeader&, sf::Packet&);
-	void OnDisconnect				(const MessageHeader&, sf::Packet&);
-	void OnOtherPlayerConnect		(const MessageHeader&, sf::Packet&);
-	void OnOtherPlayerDisconnect	(const MessageHeader&, sf::Packet&);
-	void OnRecieveUpdate			(const MessageHeader&, sf::Packet&);
-	void OnPlayerChangeTeam			(const MessageHeader&, sf::Packet&);
-	void OnServerTimeUpdate			(const MessageHeader&, sf::Packet&);
-	void OnShoot					(const MessageHeader&, sf::Packet&);
-	void OnProjectilesDestroyed		(const MessageHeader&, sf::Packet&);
-	void OnShootRequestDenied		(const MessageHeader&, sf::Packet&);
-	void OnPlace					(const MessageHeader&, sf::Packet&);
-	void OnBlocksDestroyed			(const MessageHeader&, sf::Packet&);
-	void OnPlaceRequestDenied		(const MessageHeader&, sf::Packet&);
-	void OnChangeGameState			(const MessageHeader&, sf::Packet&);
-	void OnTurfLineMoved			(const MessageHeader&, sf::Packet&);
-	void OnPlayerDeath				(const MessageHeader&, sf::Packet&);
-	void OnGameStart				(const MessageHeader&, sf::Packet&);
+	void OnDisconnect				();
+	void OnOtherPlayerConnect		(sf::Packet&);
+	void OnOtherPlayerDisconnect	(sf::Packet&);
+	void OnRecieveUpdate			(sf::Packet&);
+	void OnPlayerChangeTeam			(sf::Packet&);
+	void OnServerTimeUpdate			(sf::Packet&);
+	void OnShoot					(sf::Packet&);
+	void OnProjectilesDestroyed		(sf::Packet&);
+	void OnShootRequestDenied		();
+	void OnPlace					(sf::Packet&);
+	void OnBlocksDestroyed			(sf::Packet&);
+	void OnPlaceRequestDenied		();
+	void OnChangeGameState			(sf::Packet&);
+	void OnTurfLineMoved			(sf::Packet&);
+	void OnPlayerDeath				();
+	void OnGameStart				();
 
 	void SendPing();
 
