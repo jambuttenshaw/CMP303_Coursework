@@ -209,7 +209,8 @@ void ServerApplication::Run()
 					ps.position.x,
 					ps.position.y, 
 					ps.rotation,
-					ps.dt
+					ps.dt,
+					ps.sendTimestamp
 				};
 				i++;
 			}

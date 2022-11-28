@@ -306,7 +306,8 @@ void NetworkSystem::ProcessOutgoingUdp(float dt)
 			m_ClientID,
 			playerPos.x, playerPos.y,
 			m_Player->getRotation(),
-			dt
+			dt,
+			m_SimulationTime
 		};
 
 		sf::Packet packet;

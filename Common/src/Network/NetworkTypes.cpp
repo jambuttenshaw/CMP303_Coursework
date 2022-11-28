@@ -116,13 +116,13 @@ sf::Packet& operator>>(sf::Packet& packet, PlayerDisconnectedMessage& message)
 
 sf::Packet& operator<<(sf::Packet& packet, const UpdateMessage& message)
 {
-	CHECK_PACKET_ERROR(packet << message.playerID << message.x << message.y << message.rotation << message.dt);
+	CHECK_PACKET_ERROR(packet << message.playerID << message.x << message.y << message.rotation << message.dt << message.sendTime);
 	return packet;
 }
 
 sf::Packet& operator>>(sf::Packet& packet, UpdateMessage& message)
 {
-	CHECK_PACKET_ERROR(packet >> message.playerID >> message.x >> message.y >> message.rotation >> message.dt);
+	CHECK_PACKET_ERROR(packet >> message.playerID >> message.x >> message.y >> message.rotation >> message.dt >> message.sendTime);
 	return packet;
 }
 

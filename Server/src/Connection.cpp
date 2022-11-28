@@ -42,7 +42,18 @@ sf::Vector2f Connection::GetPastPlayerPos(float t)
 void Connection::AddToStateQueue(const UpdateMessage& updateMessage)
 {
 	PlayerStateFrame newStateFrame{ updateMessage };
-	m_PlayerStateHistory.push_front(newStateFrame);
+	auto it = m_PlayerStateHistory.begin();
+	for (; it != m_PlayerStateHistory.end(); it++)
+	{
+		PlayerStateFrame& f = *it;
+		if (newStateFrame.sendTimestamp > f.sendTimestamp)
+		{
+			it = m_PlayerStateHistory.insert(it, newStateFrame);
+			break;
+		}
+	}
+	if (it == m_PlayerStateHistory.end())
+		m_PlayerStateHistory.push_back(newStateFrame);
 
 	float historyDuration = CalculateHistoryDuration();
 	// work out how much extra history is currently stored

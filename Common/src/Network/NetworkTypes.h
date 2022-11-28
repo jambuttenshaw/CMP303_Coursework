@@ -108,6 +108,7 @@ struct UpdateMessage
 	float y;
 	float rotation;
 	float dt;
+	float sendTime;
 };
 sf::Packet& operator <<(sf::Packet& packet, const UpdateMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, UpdateMessage& message);
@@ -190,6 +191,7 @@ struct PlayerStateFrame
 	sf::Vector2f position;
 	float rotation;
 	float dt;
+	float sendTimestamp; // used for ordering player state frames
 
 	PlayerStateFrame(const UpdateMessage& m)
 	{
@@ -197,6 +199,7 @@ struct PlayerStateFrame
 		position.y = m.y;
 		rotation = m.rotation;
 		dt = m.dt;
+		sendTimestamp = m.sendTime;
 	}
 };
 
