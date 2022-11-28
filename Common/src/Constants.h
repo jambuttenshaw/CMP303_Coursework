@@ -48,3 +48,12 @@ extern const float INITIAL_BUILD_MODE_DURATION;
 extern const float INITIAL_FIGHT_MODE_DURATION;
 extern const float MIN_BUILD_MODE_DURATION;
 extern const float MIN_FIGHT_MODE_DURATION;
+
+// how many blocks the player gets in the first build mode
+extern const unsigned int INITIAL_BUILD_MODE_BLOCKS;
+// how many blocks the player gets in every other build mode
+extern const unsigned int SUBSEQUENT_BUILD_MODE_BLOCKS;
+
+// how many projectiles a player can hold at one time
+extern const unsigned int MAX_AMMO_HELD;
+extern const float RELOAD_TIME;

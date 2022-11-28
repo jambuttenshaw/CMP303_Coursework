@@ -33,3 +33,9 @@ const float INITIAL_BUILD_MODE_DURATION = 40.0f;
 const float INITIAL_FIGHT_MODE_DURATION = 80.0f;
 const float MIN_BUILD_MODE_DURATION = 10.0f;
 const float MIN_FIGHT_MODE_DURATION = 30.0f;
+
+const unsigned int INITIAL_BUILD_MODE_BLOCKS = 100;
+const unsigned int SUBSEQUENT_BUILD_MODE_BLOCKS = 50;
+
+const unsigned int MAX_AMMO_HELD = 5;
+const float RELOAD_TIME = 1.0f;

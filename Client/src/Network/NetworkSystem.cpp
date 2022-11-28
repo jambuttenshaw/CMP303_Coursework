@@ -26,7 +26,9 @@ void NetworkSystem::Init(ControllablePlayer* player,
 	std::vector<Projectile*>* projectiles,
 	std::vector<Block*>* blocks,
 	GameState* gameState,
-	std::function<void(float)> changeTurfLineFunc)
+	std::function<void(float)> changeTurfLineFunc,
+	unsigned int* buildModeBlocks,
+	unsigned int* ammo)
 {
 	m_Player = player;
 	m_NetworkPlayers = networkPlayers;
@@ -34,6 +36,8 @@ void NetworkSystem::Init(ControllablePlayer* player,
 	m_Blocks = blocks;
 	m_GameState = gameState;
 	m_ChangeTurfLineFunc = changeTurfLineFunc;
+	m_BuildModeBlocks = buildModeBlocks;
+	m_Ammo = ammo;
 }
 
 void NetworkSystem::GUI()
@@ -53,7 +57,7 @@ void NetworkSystem::GUI()
 		ImGui::Separator();
 		if (ImGui::Button("Change Team")) RequestChangeTeam();
 		
-		if (*m_GameState == GameState::Lobby)
+		if ((*m_GameState) == GameState::Lobby)
 		{
 			if (m_GameStartRequested)
 			{
@@ -200,6 +204,8 @@ void NetworkSystem::RequestShoot(const sf::Vector2f& position, const sf::Vector2
 	Projectile* localProjectile = new Projectile(shootMessage.id, shootMessage.team, { shootMessage.x, shootMessage.y }, { shootMessage.dirX, shootMessage.dirY });
 	m_Projectiles->push_back(localProjectile);
 	m_LocalProjectiles.push(localProjectile);
+
+	(*m_Ammo)--;
 }
 
 void NetworkSystem::RequestPlaceBlock(const sf::Vector2f& position)
@@ -223,6 +229,8 @@ void NetworkSystem::RequestPlaceBlock(const sf::Vector2f& position)
 	Block* localBlock = new Block(placeMessage.id, placeMessage.team, { placeMessage.x, placeMessage.y });
 	m_Blocks->push_back(localBlock);
 	m_LocalBlocks.push(localBlock);
+
+	(*m_BuildModeBlocks)--;
 }
 
 void NetworkSystem::SyncSimulationTime()
@@ -390,7 +398,7 @@ void NetworkSystem::OnConnect(const MessageHeader& header, sf::Packet& packet)
 		m_Blocks->push_back(newBlock);
 	}
 
-	*m_GameState = connectMessage.gameState;
+	(*m_GameState) = connectMessage.gameState;
 	m_RemainingGameStateDuration = connectMessage.remainingStateDuration;
 	m_ChangeTurfLineFunc(connectMessage.turfLine);
 
@@ -418,7 +426,7 @@ void NetworkSystem::OnDisconnect()
 	m_SimulationTime = 0.0f;
 	m_Player->SetTeam(PlayerTeam::None);
 	m_GameStartRequested = false;
-	*m_GameState = GameState::Lobby;
+	(*m_GameState) = GameState::Lobby;
 	m_RemainingGameStateDuration = 0;
 
 	for (auto player : *m_NetworkPlayers)
@@ -573,6 +581,7 @@ void NetworkSystem::OnShootRequestDenied()
 	}
 
 	m_LocalProjectiles.pop();
+	(*m_Ammo)++;
 }
 
 void NetworkSystem::OnPlace(sf::Packet& packet)
@@ -630,6 +639,7 @@ void NetworkSystem::OnPlaceRequestDenied()
 	}
 
 	m_LocalBlocks.pop();
+	(*m_BuildModeBlocks)++;
 }
 
 void NetworkSystem::OnChangeGameState(sf::Packet& packet)
@@ -637,7 +647,7 @@ void NetworkSystem::OnChangeGameState(sf::Packet& packet)
 	ChangeGameStateMessage message;
 	packet >> message;
 
-	*m_GameState = message.state;
+	(*m_GameState) = message.state;
 	m_RemainingGameStateDuration = message.stateDuration;
 
 	// delete all projectiles
@@ -645,7 +655,7 @@ void NetworkSystem::OnChangeGameState(sf::Packet& packet)
 		delete projectile;
 	m_Projectiles->clear();
 
-	if (*m_GameState == GameState::Lobby)
+	if ((*m_GameState) == GameState::Lobby)
 	{
 		// returned to lobby: kill all blocks placed by players
 		for (auto it = m_Blocks->begin(); it != m_Blocks->end();)
@@ -657,6 +667,13 @@ void NetworkSystem::OnChangeGameState(sf::Packet& packet)
 			}
 			else it++;
 		}
+		
+		(*m_BuildModeBlocks) = INITIAL_BUILD_MODE_BLOCKS;
+	}
+	else
+	{
+		(*m_BuildModeBlocks) = SUBSEQUENT_BUILD_MODE_BLOCKS;
+		(*m_Ammo) = MAX_AMMO_HELD;
 	}
 }
 
@@ -677,8 +694,9 @@ void NetworkSystem::OnGameStart()
 {
 	GoToSpawn();
 
-	*m_GameState = GameState::BuildMode;
+	(*m_GameState) = GameState::BuildMode;
 	m_RemainingGameStateDuration = INITIAL_BUILD_MODE_DURATION;
+	(*m_BuildModeBlocks) = INITIAL_BUILD_MODE_BLOCKS;
 
 	m_ChangeTurfLineFunc(0.5f * WORLD_WIDTH);
 

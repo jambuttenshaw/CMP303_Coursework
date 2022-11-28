@@ -67,4 +67,9 @@ private:
 
 	Block* m_GhostBlock = nullptr;
 	sf::Vector2f m_LastPlaceLocation{ 0, 0 };
+	// how many blocks the player has left to place
+	unsigned int m_BuildModeBlocks = INITIAL_BUILD_MODE_BLOCKS;
+
+	unsigned int m_Ammo = MAX_AMMO_HELD;
+	float m_ReloadTimer = 0.0f;
 };

@@ -107,13 +107,13 @@ void ServerApplication::Run()
 
 				switch (header.messageCode)
 				{
-				case MessageCode::Introduction:			ProcessIntroduction(client, packet); break;
-				case MessageCode::Disconnect:			ProcessDisconnect(client); break;
-				case MessageCode::ChangeTeam:			ProcessChangeTeam(client); break;
-				case MessageCode::GetServerTime:		ProcessGetServerTime(client); break;
-				case MessageCode::Shoot:				ProcessShootRequest(client, packet); break;
-				case MessageCode::Place:				ProcessPlaceRequest(client, packet); break;
-				case MessageCode::GameStart:			ProcessGameStartRequest(client, packet); break;
+				case MessageCode::Introduction:			ProcessIntroduction(client, packet);	break;
+				case MessageCode::Disconnect:			ProcessDisconnect(client);				break;
+				case MessageCode::ChangeTeam:			ProcessChangeTeam(client);				break;
+				case MessageCode::GetServerTime:		ProcessGetServerTime(client);			break;
+				case MessageCode::Shoot:				ProcessShootRequest(client, packet);	break;
+				case MessageCode::Place:				ProcessPlaceRequest(client, packet);	break;
+				case MessageCode::GameStart:			ProcessGameStartRequest(client);		break;
 					// these messages are sent from the server to clients, so it would be incorrect for the server to recieve them
 				case MessageCode::Connect:
 				case MessageCode::PlayerConnected:

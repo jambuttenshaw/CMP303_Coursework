@@ -33,7 +33,7 @@ ClientApplication::ClientApplication()
     m_GhostBlock->setFillColor(GetGhostBlockColour(m_Player.GetTeam(), true));
 
     // setup network system
-    m_NetworkSystem.Init(&m_Player, &m_NetworkPlayers, &m_Projectiles, &m_Blocks, &m_GameState, [this](float turfLine) { this->ChangeTurfLine(turfLine); });
+    m_NetworkSystem.Init(&m_Player, &m_NetworkPlayers, &m_Projectiles, &m_Blocks, &m_GameState, [this](float turfLine) { this->ChangeTurfLine(turfLine); }, &m_BuildModeBlocks, &m_Ammo);
 }
 
 ClientApplication::~ClientApplication()
@@ -250,6 +250,17 @@ void ClientApplication::Update(float dt)
             proj_it++;
     }
 
+    // reloading
+    if (m_Ammo < MAX_AMMO_HELD)
+    {
+        m_ReloadTimer += dt;
+        if (m_ReloadTimer > RELOAD_TIME)
+        {
+            m_Ammo++;
+            m_ReloadTimer = 0.0f;
+        }
+    }
+
     // network
     m_NetworkSystem.Update(dt);
 }
@@ -296,11 +307,24 @@ void ClientApplication::GUI()
     ControllablePlayer::SettingsGUI();
     ImGui::Text("Remote Settings:");
     NetworkPlayer::SettingsGUI();
+
+    ImGui::Separator();
+    ImGui::Text("HUD");
+    if (m_GameState == GameState::BuildMode)
+    {
+        ImGui::Text("Blocks remaining: %d", m_BuildModeBlocks);
+    }
+    else if (m_GameState == GameState::FightMode)
+    {
+        ImGui::Text("Ammo remaining: %d", m_Ammo);
+        ImGui::Text("Reload time: %.1f", RELOAD_TIME - m_ReloadTimer);
+    }
 }
 
 
 bool ClientApplication::CanPlaceBlock()
 {
+    if (!m_BuildModeBlocks) return false;
     if (Length(m_GhostBlock->getPosition() - m_Player.getPosition()) > BLOCK_PLACE_RADIUS) return false;
     if (!OnTeamTurf(m_GhostBlock->getPosition(), m_Player.GetTeam())) return false;
     if (m_GhostBlock->getGlobalBounds().intersects(m_Player.getGlobalBounds())) return false;
@@ -315,15 +339,16 @@ bool ClientApplication::CanPlaceBlock()
 
 void ClientApplication::PlaceBlock()
 {
-    if (m_GhostBlock->getPosition() != m_LastPlaceLocation)
-    {
-        m_NetworkSystem.RequestPlaceBlock(m_GhostBlock->getPosition());
-        m_LastPlaceLocation = m_GhostBlock->getPosition();
-    }
+    if (m_GhostBlock->getPosition() == m_LastPlaceLocation) return;
+
+   m_NetworkSystem.RequestPlaceBlock(m_GhostBlock->getPosition());
+   m_LastPlaceLocation = m_GhostBlock->getPosition();
 }
 
 void ClientApplication::TryFireProjectile()
 {
+    if (!m_Ammo) return;
+
     float dir = m_Player.getRotation();
     m_NetworkSystem.RequestShoot(m_Player.getPosition(), { cosf(DegToRad(dir)), sinf(DegToRad(dir)) });
 }

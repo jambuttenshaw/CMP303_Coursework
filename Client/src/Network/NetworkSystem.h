@@ -32,7 +32,9 @@ public:
 				std::vector<Projectile*>* projectiles,
 				std::vector<Block*>* blocks,
 				GameState* gameState,
-				std::function<void(float)> changeTurfLineFunc);
+				std::function<void(float)> changeTurfLineFunc,
+				unsigned int* buildModeBlocks,
+				unsigned int* ammo);
 	void GUI();
 	void Update(float dt);
 
@@ -121,6 +123,9 @@ private:
 
 	GameState* m_GameState = nullptr;
 	std::function<void(float)> m_ChangeTurfLineFunc;
+
+	unsigned int* m_BuildModeBlocks = nullptr;
+	unsigned int* m_Ammo = nullptr;
 
 	// gui
 	char m_GUIServerIP[16] = "127.0.0.1";
