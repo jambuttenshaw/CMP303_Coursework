@@ -1,6 +1,5 @@
 #include "NetworkTypes.h"
 
-#include "MathUtils.h"
 #include "Log.h"
 
 #define CHECK_PACKET_ERROR(v) CHECK_ERROR(v, "Packet operation failed!")
@@ -232,31 +231,4 @@ sf::Packet& operator>>(sf::Packet& packet, TurfLineMoveMessage& message)
 {
 	CHECK_PACKET_ERROR(packet >> message.newTurfLine);
 	return packet;
-}
-
-
-bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile)
-{
-	const float r1 = 0.5f * BLOCK_SIZE; // block inner circle radius
-	const float r2 = sqrtf(0.5f * BLOCK_SIZE * BLOCK_SIZE); // block outer circle radius
-	float sqrDistanceBetweenCentres = SqrLength(block->position - projectile->position);
-
-	if (sqrDistanceBetweenCentres > (r2 + PROJECTILE_RADIUS) * (r2 + PROJECTILE_RADIUS)) return false;
-	if (sqrDistanceBetweenCentres < (r1 + PROJECTILE_RADIUS) * (r1 + PROJECTILE_RADIUS)) return true;
-
-	sf::Vector2f c1ToC2 = Normalized(block->position - projectile->position);
-	sf::Vector2f p = projectile->position + PROJECTILE_RADIUS * c1ToC2;
-
-	if (p.x < block->position.x - 0.5f * BLOCK_SIZE || p.x > block->position.x + 0.5f * BLOCK_SIZE) return false;
-	if (p.y < block->position.y - 0.5f * BLOCK_SIZE || p.y > block->position.y + 0.5f * BLOCK_SIZE) return false;
-
-	return true;
-}
-
-
-bool PlayerProjectileCollision(const sf::Vector2f& playerPos, const sf::Vector2f& projectilePos)
-{
-	float sqrDistanceBetweenCentres = SqrLength(playerPos - projectilePos);
-	float playerRadius = 0.5f * PLAYER_SIZE;
-	return sqrDistanceBetweenCentres < (PROJECTILE_RADIUS + playerRadius)* (PROJECTILE_RADIUS + playerRadius);
 }

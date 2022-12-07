@@ -4,11 +4,11 @@
 // server properties
 const unsigned short SERVER_PORT = 4444;
 
-const float IDLE_TIMEOUT = 10.0f; // 10 second idle timout
+const float IDLE_TIMEOUT = 5.0f; // 5 second timout
 const float UPDATE_FREQUENCY = 1.0f / 20.0f; // update ticks 20 times a second
-const float PING_FREQUENCY = 1.0f;
-const float MAX_MOVE_DISTANCE = 100.0f;
-const float STATE_HISTORY_DURATION = 3.0f; // 3 seconds
+const float PING_FREQUENCY = 1.0f; // the server will measure a clients latency once every second
+const float MAX_MOVE_DISTANCE = 100.0f; // if a player moved more than 100 units in a single update then consider it to have been forcibly teleported
+const float STATE_HISTORY_DURATION = 3.0f; // store the last 3 seconds of a players state
 
 // world bounds
 const float WORLD_WIDTH = 900.0f;
@@ -34,8 +34,8 @@ const float INITIAL_FIGHT_MODE_DURATION = 80.0f;
 const float MIN_BUILD_MODE_DURATION = 10.0f;
 const float MIN_FIGHT_MODE_DURATION = 30.0f;
 
-const unsigned int INITIAL_BUILD_MODE_BLOCKS = 100;
-const unsigned int SUBSEQUENT_BUILD_MODE_BLOCKS = 50;
+const unsigned int INITIAL_BUILD_MODE_BLOCKS = 60;
+const unsigned int SUBSEQUENT_BUILD_MODE_BLOCKS = 30;
 
 const unsigned int MAX_AMMO_HELD = 3;
 const float RELOAD_TIME = 1.0f;

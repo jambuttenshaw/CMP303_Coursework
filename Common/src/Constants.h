@@ -4,6 +4,9 @@
 #include "CommonTypes.h"
 
 
+// values for these constants can be found in ConstantDefinitions.cpp
+// this is so that the values of constants can be tweaked without having to recompile more than 1 translation unit
+
 // server properties
 extern const unsigned short SERVER_PORT;
 

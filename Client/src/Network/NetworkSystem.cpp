@@ -49,6 +49,12 @@ void NetworkSystem::GUI()
 		if (ImGui::Button("Disconnect")) Disconnect();
 		ImGui::Text("Client ID: %d", m_ClientID);
 		ImGui::Text("Player Number: %d/%d", m_PlayerNumber, m_NetworkPlayers->size() + 1);
+		
+		if (ImGui::Button("Freeze Client"))
+		{
+			// to test client time out
+			while (true);
+		}
 
 		ImGui::Separator();
 		ImGui::Text("Game State: %s", GameStateToStr(*m_GameState));

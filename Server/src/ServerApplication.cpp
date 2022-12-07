@@ -143,7 +143,7 @@ void ServerApplication::Run()
 			}
 			else if (status == sf::Socket::Disconnected)
 			{
-				LOG_WARN("Client {0} unexpectedly disconnected! Closing connection...");
+				LOG_WARN("Client {0} unexpectedly disconnected! Closing connection...", client->GetID());
 				// clean up; disconnect the client
 				ProcessDisconnect(client);
 			}
@@ -153,6 +153,7 @@ void ServerApplication::Run()
 			if (client->GetIdleTimer() > IDLE_TIMEOUT)
 			{
 				// disconnect this client for being idle
+				LOG_INFO("Client {0} timed out, disconnecting...", client->GetID());
 				ProcessDisconnect(client);
 			}
 
@@ -255,7 +256,7 @@ void ServerApplication::SimulateGameObjects(float dt)
 	{
 		auto projectile = *proj_it;
 
-		projectile->Step(dt);
+		projectile->SimulationStep(dt);
 
 		// check if the projectile has hit a block
 		bool hitBlock = false;
@@ -263,7 +264,7 @@ void ServerApplication::SimulateGameObjects(float dt)
 		{
 			auto block = *block_it;
 
-			if (BlockProjectileCollision(block, projectile))
+			if (projectile->BlockCollision(block))
 			{
 				hitBlock = true;
 
@@ -291,11 +292,7 @@ void ServerApplication::SimulateGameObjects(float dt)
 		{
 			if (client->GetPlayerTeam() == projectile->team) continue;
 
-			float shooterLatency = FindClientWithID(projectile->shotBy)->GetLatency();
-			auto playerPos = client->GetPastPlayerPos(shooterLatency + client->GetLatency());
-			auto delta = playerPos - client->GetCurrentPlayerState().position;
-
-			if (PlayerProjectileCollision(client->GetCurrentPlayerState().position, projectile->position))
+			if (projectile->PlayerCollision(client->GetCurrentPlayerState().position))
 			{
 				hitPlayer = true;
 
@@ -703,6 +700,8 @@ bool ServerApplication::VerifyProjecitleShoot(const sf::Vector2f& position, cons
 {
 	// is the game not in fight mode
 	if (m_GameState != GameState::FightMode) return false;
+	// has max projectiles been exceeded
+	if (m_Projectiles.size() == MAX_NUM_PROJECTILES) return false;
 
 	return true;
 }
@@ -711,6 +710,8 @@ bool ServerApplication::VerifyBlockPlacement(const sf::Vector2f& position, const
 {
 	// is the game not in build mode
 	if (m_GameState != GameState::BuildMode) return false;
+	// has max blocks been exceeded
+	if (m_Blocks.size() == MAX_NUM_BLOCKS) return false;
 	// is the player close enough to the place position
 	if (Length(position - player.position) > BLOCK_PLACE_RADIUS) return false;
 	// is the block on the players own turf

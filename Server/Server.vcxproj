@@ -87,11 +87,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Connection.cpp" />
+    <ClCompile Include="src\GameObjects.cpp" />
     <ClCompile Include="src\Server.cpp" />
     <ClCompile Include="src\ServerApplication.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Connection.h" />
+    <ClInclude Include="src\GameObjects.h" />
     <ClInclude Include="src\ServerApplication.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

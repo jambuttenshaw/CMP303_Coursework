@@ -1,6 +1,5 @@
 #pragma once
 
-#include <SFML/Network.hpp>
 #include "Constants.h"
 #include "CommonTypes.h"
 
@@ -185,7 +184,6 @@ sf::Packet& operator <<(sf::Packet& packet, const TurfLineMoveMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, TurfLineMoveMessage& message);
 
 
-// NETWORK REPRESENTATIONS OF GAME OBJECTS
 struct PlayerStateFrame
 {
 	sf::Vector2f position;
@@ -202,71 +200,3 @@ struct PlayerStateFrame
 		sendTimestamp = m.sendTime;
 	}
 };
-
-struct ProjectileState
-{
-	ProjectileID id;
-	ClientID shotBy;
-	PlayerTeam team;
-
-	sf::Vector2f position;
-
-	sf::Vector2f initPosition;
-	sf::Vector2f direction;
-
-	float serverShootTime; // the sim time when the projectile was shot (local to the client that shot it)
-	float clientShootTime; // when the server recieved the request to shoot a projectile, and when the projectile was actually created
-
-	ProjectileState(ShootMessage shootMessage)
-	{
-		id = shootMessage.id;
-		shotBy = shootMessage.shotBy;
-		team = shootMessage.team;
-		position = { shootMessage.x, shootMessage.y };
-		initPosition = position;
-		direction = { shootMessage.dirX, shootMessage.dirY };
-		serverShootTime = 0.0f;
-		clientShootTime = 0.0f;
-	}
-
-	void Step(float dt)
-	{
-		position += direction * PROJECTILE_MOVE_SPEED * dt;
-	}
-
-	sf::Vector2f PositionAtServerTime(float t)
-	{
-		float dt = t - serverShootTime;
-		return initPosition + direction * (PROJECTILE_MOVE_SPEED * dt);
-	}
-	sf::Vector2f PositionAtClientTime(float t)
-	{
-		float dt = t - clientShootTime;
-		return initPosition + direction * (PROJECTILE_MOVE_SPEED * dt);
-	}
-};
-
-struct BlockState
-{
-	BlockID id;
-	PlayerTeam team;
-
-	sf::Vector2f position;
-
-	BlockState(PlaceMessage placeMessage)
-	{
-		id = placeMessage.id;
-		team = placeMessage.team;
-		position = { placeMessage.x, placeMessage.y };
-	}
-	BlockState(BlockID _id, PlayerTeam _team, const sf::Vector2f& _position)
-	{
-		id = _id;
-		team = _team;
-		position = _position;
-	}
-};
-
-
-bool BlockProjectileCollision(BlockState* block, ProjectileState* projectile);
-bool PlayerProjectileCollision(const sf::Vector2f& playerPos, const sf::Vector2f& projectilePos);

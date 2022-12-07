@@ -5,6 +5,7 @@
 #include <queue>
 
 #include "Network/NetworkTypes.h"
+#include "GameObjects.h"
 #include "Connection.h"
 #include "Log.h"
 
