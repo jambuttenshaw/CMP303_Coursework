@@ -322,7 +322,7 @@ void ServerApplication::SimulateGameObjects(float dt)
 				client->SendMessageTcp(MessageCode::PlayerDeath);
 
 				// move turf line
-				m_TurfLine += BLOCK_SIZE * (projectile->team == PlayerTeam::Red ? 1 : - 1);
+				m_TurfLine += m_RoundNum * BLOCK_SIZE * (projectile->team == PlayerTeam::Red ? 1 : - 1);
 				// check win condition
 				if (m_TurfLine <= SPAWN_WIDTH || m_TurfLine >= WORLD_WIDTH - SPAWN_WIDTH)
 				{
@@ -385,6 +385,7 @@ void ServerApplication::UpdateGameState(float dt)
 			m_GameState = GameState::FightMode;
 			m_StateDuration = m_FightModeDuration;
 			m_BuildModeDuration = std::max(m_BuildModeDuration - 10.0f, MIN_BUILD_MODE_DURATION);
+			m_RoundNum++;
 
 			break;
 		default:
@@ -411,6 +412,7 @@ void ServerApplication::StartGame()
 	// set up initial game state
 	m_GameState = GameState::BuildMode;
 	m_StateDuration = INITIAL_BUILD_MODE_DURATION;
+	m_RoundNum = 0;
 
 	m_BuildModeDuration = INITIAL_BUILD_MODE_DURATION;
 	m_FightModeDuration = INITIAL_FIGHT_MODE_DURATION;
@@ -434,6 +436,7 @@ void ServerApplication::EndGame()
 	m_GameState = GameState::Lobby;
 	m_StateDuration = 0.0f;
 	m_StateTimer = 0.0f;
+	m_RoundNum = 0;
 
 	for (auto client : m_Clients)
 	{

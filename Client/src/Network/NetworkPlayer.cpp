@@ -9,7 +9,6 @@
 // static var definitions
 bool NetworkPlayer::s_EnableInterpolation = true;
 bool NetworkPlayer::s_EnablePrediction = false;
-bool NetworkPlayer::s_EnableOutOfOrderChecks = false;
 
 
 NetworkPlayer::NetworkPlayer(ClientID clientID)
@@ -103,5 +102,4 @@ void NetworkPlayer::SettingsGUI()
 {
 	ImGui::Checkbox("Interpolation", &s_EnableInterpolation);
 	ImGui::Checkbox("Prediction", &s_EnablePrediction);
-	ImGui::Checkbox("Out of Order Checks", &s_EnableOutOfOrderChecks);
 }

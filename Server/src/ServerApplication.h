@@ -111,6 +111,7 @@ private:
 	float m_FightModeDuration = INITIAL_FIGHT_MODE_DURATION;
 	float m_StateTimer = 0.0f;
 	float m_StateDuration = 0.0f;
+	int m_RoundNum = 0;
 
 	// turf line starts at halfway
 	float m_TurfLine = 0.5f * WORLD_WIDTH;

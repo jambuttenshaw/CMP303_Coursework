@@ -44,6 +44,5 @@ private:
 
 	static bool s_EnableInterpolation;
 	static bool s_EnablePrediction;
-	static bool s_EnableOutOfOrderChecks;
 
 };
