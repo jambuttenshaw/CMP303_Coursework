@@ -7,7 +7,7 @@
 // there is purely data, no concept of graphics
 
 
-
+// block state is constant
 struct BlockState
 {
 	BlockID id;
@@ -37,9 +37,11 @@ struct ProjectileState
 
 	void SimulationStep(float dt);
 
+	// from knowing the initial position, the time of shoot, and direction of the projectile, its position at any time in the past can be calculated
 	sf::Vector2f PositionAtServerTime(float t);
 	sf::Vector2f PositionAtClientTime(float t);
 
+	// collision detection
 	bool BlockCollision(BlockState* block);
 	bool PlayerCollision(const sf::Vector2f& playerPos);
 	// check for player timeDelta seconds in the past

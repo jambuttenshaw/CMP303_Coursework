@@ -20,16 +20,18 @@ public:
 	void Run();
 
 private:
-
+	// process executed every iteration of the update loop
 	void SimulateGameObjects(float dt);
 	void UpdateGameState(float dt);
 
+	// begin and end the game
 	void StartGame();
 	void EndGame();
 
 	void DestroyProjectile(ProjectileState* projectile);
 	void DestroyBlock(BlockState* block);
 
+	// callbacks for messages
 	void ProcessConnect();
 	void ProcessIntroduction(Connection* client, sf::Packet& packet);
 	void ProcessDisconnect(Connection* client);
@@ -42,6 +44,7 @@ private:
 
 	Connection* FindClientWithID(ClientID id);
 
+	// send via udp
 	template<typename T>
 	void SendMessageToClientUdp(Connection* client, MessageCode code, T& message)
 	{
@@ -68,6 +71,7 @@ private:
 			LOG_ERROR("Failed to send udp packet to client ID: {}", client->GetID());
 	}
 
+	// get the next id in the queue
 	ClientID NextClientID();
 	ProjectileID NextProjectileID();
 	BlockID NextBlockID();
@@ -80,16 +84,20 @@ private:
 	void CheckForBlocksAcrossTurfLine();
 
 private:
+	// the servers sockets
 	sf::TcpListener m_ListenSocket;
 	sf::UdpSocket m_UdpSocket;
 	
+	// all connected clients
 	std::vector<Connection*> m_Clients;
 	Connection* m_NewConnection = nullptr;
 
+	// a queue is used to recycle client ID's
 	std::queue<ClientID> m_NextClientID;
 	ProjectileID m_NextProjectileID = 0;
 	BlockID m_NextBlockID = 0;
 
+	// clock and timers
 	sf::Clock m_ServerClock;
 	float m_SimulationTime = 0.0f;
 	float m_UpdateTimer = 0.0f;

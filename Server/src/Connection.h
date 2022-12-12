@@ -6,12 +6,14 @@
 #include <cassert>
 
 
+// a class encapsulating the connection between the server and a client
 class Connection
 {
 public:
 	Connection();
 	~Connection();
 
+	// setters and getters
 	inline sf::TcpSocket& GetSocket() { return m_Socket; }
 	inline ClientID GetID() const { return m_ID; }
 	
@@ -23,20 +25,25 @@ public:
 	inline unsigned short GetTcpPort() const { return m_TcpPort; }
 	inline unsigned short GetUdpPort() const { return m_UdpPort; }
 
+	// check if the server is able to send to the client via udp yet
 	inline bool CanSendUdp() const { return m_UdpPort != (unsigned short)(-1); }
 
+	// manipulate and read the players state queue
 	inline bool StateQueueEmpty() const { return m_PlayerStateHistory.empty(); }
 	inline PlayerStateFrame& GetCurrentPlayerState() { assert(m_PlayerStateHistory.size() > 0 && "State history is empty!");  return m_PlayerStateHistory[0]; }
 	// get the player's state t seconds ago
 	sf::Vector2f GetPastPlayerPos(float t);
 	void AddToStateQueue(const UpdateMessage& updateMessage);
 
+	// has the player ready-ed up
 	inline bool IsReady() const { return m_Ready; }
 	inline void SetReady(bool ready) { m_Ready = ready; }
 
+	// set up the sockets
 	void OnTcpConnected(ClientID id, sf::Uint8 playerNum);
 	void SetUdpPort(unsigned short clientPort);
 
+	// send data to client, additional overloads for convenience
 	void SendPacketTcp(sf::Packet& packet);
 	void SendMessageTcp(MessageCode code);
 	template<typename T>
@@ -49,10 +56,12 @@ public:
 		SendPacketTcp(packet);
 	}
 
+	// helper functions for calculating latency
 	inline void BeginPing(float t) { m_BeginPingTime = t; }
 	inline void CalculateLatency(float t) { m_Latency = t - m_BeginPingTime; }
 	inline float GetLatency() const { return m_Latency; }
 
+	// functions for manipulating the idle timer
 	inline float GetIdleTimer() const { return m_IdleTimer; }
 	inline void IncreaseIdleTimer(float dt) { m_IdleTimer += dt; }
 	inline void ResetIdleTimer() { m_IdleTimer = 0.0f; }

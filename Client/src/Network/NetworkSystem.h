@@ -19,7 +19,7 @@ class NetworkSystem
 	enum class ConnectionState
 	{
 		Disconnected,	// tcp is not connected
-		Connecting,		// tcp is connected, waiting on client ID
+		Connecting,		// tcp is connected, waiting on confirmation from the server and client ID
 		Connected		// tcp is connected and we have a client ID
 	};
 
@@ -27,6 +27,7 @@ public:
 	NetworkSystem();
 	~NetworkSystem();
 
+	// get pointers to all the objects that the network system needs to interact with
 	void Init(	ControllablePlayer* player,
 				std::vector<NetworkPlayer*>* networkPlayers,
 				std::vector<Projectile*>* projectiles,
@@ -35,11 +36,16 @@ public:
 				std::function<void(float)> changeTurfLineFunc,
 				unsigned int* buildModeBlocks,
 				unsigned int* ammo);
+	// display gui
 	void GUI();
+	// per-frame update
 	void Update(float dt);
 
+	// is this connected to the server
 	inline bool Connected() const { return (m_ClientID != INVALID_CLIENT_ID); }
 
+	// send requests to the server
+	// the server will respond to these messages appropriately
 	void Connect();
 	void Disconnect();
 
@@ -49,13 +55,16 @@ public:
 	void RequestShoot(const sf::Vector2f& position, const sf::Vector2f& direction);
 	void RequestPlaceBlock(const sf::Vector2f& position);
 
+	// synchonise the simulation time with the server
 	void SyncSimulationTime();
 
 private:
+	// process network traffic
 	void ProcessIncomingUdp();
 	void ProcessOutgoingUdp(float dt);
 	void ProcessIncomingTcp();
 
+	// send to server
 	void SendPacketToServerTcp(sf::Packet& packet);
 	void SendPacketToServerUdp(sf::Packet& packet);
 
@@ -78,8 +87,10 @@ private:
 	void OnPlayerDeath				();
 	void OnGameStart				();
 
+	// for measuring latency - the server measures the latency to all clients every second
 	void SendPing();
 
+	// create a header for a message to send to the server
 	inline MessageHeader CreateHeader(MessageCode messageCode) const { return MessageHeader{ m_ClientID, messageCode }; }
 
 	NetworkPlayer* FindNetworkPlayerWithID(ClientID id);
@@ -87,16 +98,22 @@ private:
 	void GoToSpawn();
 
 private:
+	// address and port of the server
 	sf::IpAddress m_ServerAddress = sf::IpAddress::None;
 	unsigned short m_ServerPort = (unsigned short)(-1);
 
+	// clients and server communicate with both tcp and udp
+	// so it needs a separate socket for each
 	sf::TcpSocket m_TcpSocket;
 	sf::UdpSocket m_UdpSocket;
 
+	// connection status
 	ConnectionState m_ConnectionState = ConnectionState::Disconnected;
 	ClientID m_ClientID = INVALID_CLIENT_ID;
 	sf::Uint8 m_PlayerNumber = -1;
 
+	// timers
+	// 
 	// time since since simulation began: synchonized with the server
 	float m_SimulationTime = 0.0f;
 	float m_LatencyPingBegin = 0.0f;
@@ -106,6 +123,7 @@ private:
 
 	float m_RemainingGameStateDuration = 0.0f;
 
+	// the game will start once all players request to begin
 	bool m_GameStartRequested = false;
 
 	// pointers to game objects and game object containers

@@ -2,8 +2,11 @@
 
 #include "Log.h"
 
+// validates that packet packing/unpacking was successful
 #define CHECK_PACKET_ERROR(v) CHECK_ERROR(v, "Packet operation failed!")
 
+
+// following is definitions of sf::Packet operator overloads for packing and unpacking packets
 
 sf::Packet& operator <<(sf::Packet& packet, const MessageCode& mc)
 {

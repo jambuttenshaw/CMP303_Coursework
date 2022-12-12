@@ -5,6 +5,7 @@
 
 Player::Player()
 {
+	// set up player sprite
 	setPointCount(3);
 	setPoint(0, { 0, 0 });
 	setPoint(1, { PLAYER_SIZE, 0.5f * PLAYER_SIZE });

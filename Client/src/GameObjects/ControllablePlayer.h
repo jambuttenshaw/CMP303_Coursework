@@ -15,6 +15,7 @@ public:
 	void UpdateRotation();
 
 public:
+	// allow the player to move without user input for testing purposes
 	static void SettingsGUI();
 	static bool AutomoveEnabled() { return s_EnableAutomove; }
 	static sf::Vector2f Automove(float dt);

@@ -2,6 +2,8 @@
 
 #include <SFML/System.hpp>
 
+// a bunch of generally helpful math functions
+
 float SqrLength(const sf::Vector2f& v);
 float Length(const sf::Vector2f& v);
 

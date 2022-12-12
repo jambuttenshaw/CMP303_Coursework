@@ -75,6 +75,7 @@ bool ProjectileState::PlayerCollision(const sf::Vector2f& playerPos)
 
 bool ProjectileState::PlayerCollision(const sf::Vector2f& playerPos, float timeDelta)
 {
+	// work out position timeDelta seconds in the past
 	sf::Vector2f p = position - (timeDelta * PROJECTILE_MOVE_SPEED * direction);
 	float sqrDistanceBetweenCentres = SqrLength(playerPos - p);
 	float playerRadius = 0.5f * PLAYER_SIZE;

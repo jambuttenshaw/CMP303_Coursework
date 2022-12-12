@@ -7,18 +7,23 @@
 
 ServerApplication::ServerApplication()
 {
+	// set up server
+
 	LOG_INFO("----Server----");
 	LOG_INFO("Local IP: {}", sf::IpAddress::getLocalAddress().toString());
 
+	// set up server sockets
 	m_ListenSocket.setBlocking(false);
 	m_UdpSocket.setBlocking(false);
 
+	//  bind udp port
 	if (m_UdpSocket.bind(SERVER_PORT) != sf::Socket::Done)
 	{
 		LOG_ERROR("Server failed to bind to port {}", SERVER_PORT);
 	}
 	LOG_INFO("UDP: listening on port {}", SERVER_PORT);
 
+	// listen for incoming connections
 	if (m_ListenSocket.listen(SERVER_PORT) != sf::Socket::Done)
 	{
 		LOG_ERROR("Server failed to listen on port {}", SERVER_PORT);
@@ -26,11 +31,15 @@ ServerApplication::ServerApplication()
 	LOG_INFO("TCP: listening on port {}", SERVER_PORT);
 	LOG_INFO("--------------");
 
+	// setup client id queue
 	for (ClientID id = 0; id < INVALID_CLIENT_ID; id++)
 		m_NextClientID.push(id);
 
+	// set aside enough spaces in the vector for clients
 	m_Clients.reserve(MAX_NUM_PLAYERS);
 
+	// create an empty (invalid) connection object
+	// to accept new clients with
 	m_NewConnection = new Connection;
 
 
@@ -46,6 +55,8 @@ ServerApplication::ServerApplication()
 
 ServerApplication::~ServerApplication()
 {
+	// clean up
+
 	// delete all objects in the game world
 	for (auto projectile : m_Projectiles)
 		delete projectile;
@@ -64,10 +75,13 @@ void ServerApplication::Run()
 
 	while (true)
 	{
+		// update simulation time,
+		// calculate dt
 		float lastSimTime = m_SimulationTime;
 		m_SimulationTime = m_ServerClock.getElapsedTime().asMilliseconds() / 1000.0f;
 		float dt = m_SimulationTime - lastSimTime;
 
+		// update game objects and game state
 		SimulateGameObjects(dt);
 		UpdateGameState(dt);
 
@@ -105,6 +119,7 @@ void ServerApplication::Run()
 				MessageHeader header;
 				packet >> header;
 
+				// call appropriate callback
 				switch (header.messageCode)
 				{
 				case MessageCode::Introduction:			ProcessIntroduction(client, packet);	break;
@@ -143,7 +158,7 @@ void ServerApplication::Run()
 			}
 			else if (status == sf::Socket::Disconnected)
 			{
-				LOG_WARN("Client {0} unexpectedly disconnected! Closing connection...", client->GetID());
+				LOG_WARN("Client {0} unexpectedly disconnected! Cleaning up...", client->GetID());
 				// clean up; disconnect the client
 				ProcessDisconnect(client);
 			}
@@ -175,6 +190,7 @@ void ServerApplication::Run()
 			Connection* client = FindClientWithID(header.clientID);
 			if (client)
 			{
+				// call appropriate callback
 				switch (header.messageCode)
 				{
 				case MessageCode::Update:	ProcessUpdate(client, packet); break;
@@ -198,6 +214,7 @@ void ServerApplication::Run()
 			// create a packet containing all update data
 			std::vector<UpdateMessage> allUpdateData(m_Clients.size());
 
+			// populate the update vector
 			int i = 0;
 			for (auto& client : m_Clients)
 			{
@@ -218,17 +235,19 @@ void ServerApplication::Run()
 
 			for (auto& client : m_Clients)
 			{
+				// construct an update message from the update data vector
 				MessageHeader header{ client->GetID(), MessageCode::Update };
 				sf::Packet packet;
 				packet << header;
 				for (auto& updateMessage : allUpdateData) packet << updateMessage;
-					
+			
+				// send it to the client
 				auto status = m_UdpSocket.send(packet, client->GetIP(), client->GetUdpPort());
 				if (status != sf::Socket::Done)
 					LOG_ERROR("Failed to send udp packet to client ID: {}", client->GetID());
 			}
 
-			m_UpdateTimer = 0.0f;
+			m_UpdateTimer -= UPDATE_FREQUENCY;
 		}
 
 		// ping clients to measure latency frequently
@@ -241,7 +260,7 @@ void ServerApplication::Run()
 				client->BeginPing(m_SimulationTime);
 				SendMessageToClientUdp(client, MessageCode::Ping);
 			}
-			m_PingTimer = 0.0f;
+			m_PingTimer -= PING_FREQUENCY;
 		}
 	}
 }
@@ -256,6 +275,7 @@ void ServerApplication::SimulateGameObjects(float dt)
 	{
 		auto projectile = *proj_it;
 
+		// update position
 		projectile->SimulationStep(dt);
 
 		// check if the projectile has hit a block
@@ -268,6 +288,7 @@ void ServerApplication::SimulateGameObjects(float dt)
 			{
 				hitBlock = true;
 
+				// destroy the block
 				if (block->team != projectile->team && block->team != PlayerTeam::None)
 				{
 					DestroyBlock(block);
@@ -292,6 +313,7 @@ void ServerApplication::SimulateGameObjects(float dt)
 		{
 			if (client->GetPlayerTeam() == projectile->team) continue;
 
+			// check for collision with the player
 			if (projectile->PlayerCollision(client->GetCurrentPlayerState().position))
 			{
 				hitPlayer = true;
@@ -323,10 +345,10 @@ void ServerApplication::SimulateGameObjects(float dt)
 		}
 		if (gameOver) break;
 
+		// check if anything happened that should destroy the projectile
 		if (hitBlock || hitPlayer || projectile->position.x - PROJECTILE_RADIUS < 0 || projectile->position.x + PROJECTILE_RADIUS > WORLD_WIDTH
 								  || projectile->position.y - PROJECTILE_RADIUS < 0 || projectile->position.y + PROJECTILE_RADIUS > WORLD_HEIGHT)
 		{
-			// projectile is out of bounds
 			DestroyProjectile(projectile);
 			proj_it = m_Projectiles.erase(proj_it);
 		}
@@ -337,8 +359,10 @@ void ServerApplication::SimulateGameObjects(float dt)
 
 void ServerApplication::UpdateGameState(float dt)
 {
+	// nothing to update in the lobby
 	if (m_GameState == GameState::Lobby) return;
 
+	// increment state timer
 	m_StateTimer += dt;
 
 	if (m_StateTimer > m_StateDuration)
@@ -350,12 +374,14 @@ void ServerApplication::UpdateGameState(float dt)
 		{
 		case GameState::Lobby: break;
 		case GameState::FightMode:
+			// configure for build mode
 			m_GameState = GameState::BuildMode;
 			m_StateDuration = m_BuildModeDuration;
 			m_FightModeDuration = std::max(m_FightModeDuration - 10.0f, MIN_FIGHT_MODE_DURATION);
 
 			break;
 		case GameState::BuildMode:	
+			// configure for fight mode
 			m_GameState = GameState::FightMode;
 			m_StateDuration = m_FightModeDuration;
 			m_BuildModeDuration = std::max(m_BuildModeDuration - 10.0f, MIN_BUILD_MODE_DURATION);
@@ -382,6 +408,7 @@ void ServerApplication::UpdateGameState(float dt)
 
 void ServerApplication::StartGame()
 {
+	// set up initial game state
 	m_GameState = GameState::BuildMode;
 	m_StateDuration = INITIAL_BUILD_MODE_DURATION;
 
@@ -402,12 +429,15 @@ void ServerApplication::StartGame()
 
 void ServerApplication::EndGame()
 {
+	// reset game state
+	// send game back to the lobby
 	m_GameState = GameState::Lobby;
 	m_StateDuration = 0.0f;
 	m_StateTimer = 0.0f;
 
 	for (auto client : m_Clients)
 	{
+		// tell all clients the game has ended
 		ChangeGameStateMessage message{ m_GameState, m_StateDuration };
 		client->SendMessageTcp(MessageCode::ChangeGameState, message);
 		// reset ready flag
@@ -454,7 +484,10 @@ void ServerApplication::DestroyBlock(BlockState* block)
 
 void ServerApplication::ProcessConnect()
 {
+	// a new client has connected
+	// get an ID for them
 	ClientID newClientID = NextClientID();
+	// calculate their player number
 	sf::Uint8 playerNumber = static_cast<sf::Uint8>(m_Clients.size() + 1);
 
 	// setup connection object
@@ -497,6 +530,7 @@ void ServerApplication::ProcessConnect()
 	connectMessage.remainingStateDuration = m_StateDuration - m_StateTimer;
 	connectMessage.turfLine = m_TurfLine;
 
+	// send the world state to the client
 	m_NewConnection->SendMessageTcp(MessageCode::Connect, connectMessage);
 
 	// tell all other clients a new player has connected
@@ -506,9 +540,11 @@ void ServerApplication::ProcessConnect()
 		c->SendMessageTcp(MessageCode::PlayerConnected, playerConnectedMessage);
 	}
 
+	// add to collection of clients
 	m_Clients.push_back(m_NewConnection);
 	LOG_INFO("[Player Joined] Player: {0} ID: {1} IP: {2} ", m_NewConnection->GetPlayerNumber(), newClientID, m_NewConnection->GetSocket().getRemoteAddress().toString());
 
+	// create a new blank connection object
 	m_NewConnection = new Connection;
 }
 
@@ -526,6 +562,7 @@ void ServerApplication::ProcessDisconnect(Connection* client)
 	// acknowledge the clients requests to disconnect
 	client->SendMessageTcp(MessageCode::Disconnect);
 
+	// allow thier id to be reused later
 	m_NextClientID.push(client->GetID());
 	if (client->GetPlayerTeam() == PlayerTeam::Red)
 		m_RedTeamPlayerCount--;
@@ -560,6 +597,7 @@ void ServerApplication::ProcessUpdate(Connection* client, sf::Packet& packet)
 
 	if (updateMessage.playerID != client->GetID())
 	{
+		// just in case this manages to happen?
 		LOG_WARN("Client sending update data with incorrect client ID");
 		return;
 	}
@@ -741,15 +779,19 @@ bool ServerApplication::OnTeamTurf(const sf::Vector2f& p, PlayerTeam team)
 
 void ServerApplication::CheckForBlocksAcrossTurfLine()
 {
+	// any blocks across the turf line will be destroyed
 	BlocksDestroyedMessage blocksDestroyedMessage;
 	blocksDestroyedMessage.count = 0;
 
+	// iterate through all blocks
 	for (auto it = m_Blocks.begin(); it != m_Blocks.end();)
 	{
 		auto block = *it;
 
 		if (!OnTeamTurf(block->position, block->team))
 		{
+			// this block is on the wrong side
+			// add the id to the array so clients are informed to also destory this block
 			blocksDestroyedMessage.ids[blocksDestroyedMessage.count++] = block->id;
 			
 			delete block;
@@ -759,6 +801,7 @@ void ServerApplication::CheckForBlocksAcrossTurfLine()
 			it++;
 	}
 
+	// if any blocks were destroyed, tell all clients about it
 	if (blocksDestroyedMessage.count > 0)
 	{
 		for (auto client : m_Clients)

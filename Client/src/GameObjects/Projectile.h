@@ -22,6 +22,7 @@ public:
 	inline PlayerTeam GetTeam() const { return m_Team; }
 
 private:
+	// unique id assigned by the server
 	ProjectileID m_ProjectileID = INVALID_PROJECTILE_ID;
 	const PlayerTeam m_Team;
 	const sf::Vector2f m_Direciton;

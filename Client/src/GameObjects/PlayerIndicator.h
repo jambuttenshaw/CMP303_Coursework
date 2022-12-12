@@ -3,6 +3,7 @@
 #include <SFML/Graphics.hpp>
 
 
+// quick indicator to show a user which player they are in control of
 class PlayerIndicator : public sf::ConvexShape
 {
 public:

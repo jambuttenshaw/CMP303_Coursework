@@ -7,6 +7,7 @@
 #include "Core/Colors.h"
 
 
+// graphical representation of a player
 class Player : public sf::ConvexShape
 {
 public:

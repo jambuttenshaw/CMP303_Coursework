@@ -4,11 +4,15 @@
 #include "CommonTypes.h"
 
 
+// a unique identifier assigned to a client
 using ClientID = sf::Uint8;
 const ClientID INVALID_CLIENT_ID = (ClientID)(-1);
+// different from the max number of players that can connect: this is the max possible representable ID
 const ClientID MAX_CLIENT_ID = INVALID_CLIENT_ID - 1;
 
 
+// a message code is an 8 bit unsigned integer that specifies the purpose of the following message
+// it is present in every message between client and server so they can identify what to do with the data they receive
 enum class MessageCode : sf::Uint8
 {
 	Connect,				// Confirm connection to server (S->C)
@@ -40,6 +44,9 @@ sf::Packet& operator >>(sf::Packet& packet, MessageCode& mc);
 
 
 // MESSAGE TYPES
+
+// a message header preceeds the data in every message
+// its important to identify who send the message, and what they want done with the data inside the message
 struct MessageHeader
 {
 	ClientID clientID;
@@ -49,6 +56,9 @@ sf::Packet& operator <<(sf::Packet& packet, const MessageHeader& header);
 sf::Packet& operator >>(sf::Packet& packet, MessageHeader& header);
 
 
+// sent to a client after they connect,
+// and it describes the current state of the game when they join
+// so they can synchronize with the server
 struct ConnectMessage
 {
 	// info to be given to the newly joining player
@@ -59,9 +69,6 @@ struct ConnectMessage
 	ClientID playerIDs[MAX_NUM_PLAYERS];
 	PlayerTeam playerTeams[MAX_NUM_PLAYERS];
 	
-	// info about projectiles already in game
-	sf::Uint8 numProjectiles;
-
 	// info about blocks already in game
 	sf::Uint8 numBlocks;
 	BlockID blockIDs[MAX_NUM_BLOCKS];
@@ -78,6 +85,7 @@ struct ConnectMessage
 sf::Packet& operator <<(sf::Packet& packet, const ConnectMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ConnectMessage& message);
 
+// used for a client to tell the server how to contact them via udp
 struct IntroductionMessage
 {
 	sf::Uint16 udpPort;
@@ -85,6 +93,7 @@ struct IntroductionMessage
 sf::Packet& operator <<(sf::Packet& packet, const IntroductionMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, IntroductionMessage& message);
 
+// informs aready connected players that a new player has connected
 struct PlayerConnectedMessage
 {
 	ClientID playerID;
@@ -93,6 +102,7 @@ struct PlayerConnectedMessage
 sf::Packet& operator <<(sf::Packet& packet, const PlayerConnectedMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, PlayerConnectedMessage& message);
 
+// informs all connected players that a player has disconnected
 struct PlayerDisconnectedMessage
 {
 	ClientID playerID;
@@ -100,6 +110,8 @@ struct PlayerDisconnectedMessage
 sf::Packet& operator <<(sf::Packet& packet, const PlayerDisconnectedMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, PlayerDisconnectedMessage& message);
 
+// contains all data about the current state of the player
+// dt and sendTime are used for interpolating, predicting, and rewinding
 struct UpdateMessage
 {
 	ClientID playerID; // the client that the update data pertains to
@@ -112,6 +124,7 @@ struct UpdateMessage
 sf::Packet& operator <<(sf::Packet& packet, const UpdateMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, UpdateMessage& message);
 
+// requests/confirms that a player has changed team
 struct ChangeTeamMessage
 {
 	ClientID playerID; // the client that changed team
@@ -120,6 +133,7 @@ struct ChangeTeamMessage
 sf::Packet& operator <<(sf::Packet& packet, const ChangeTeamMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ChangeTeamMessage& message);
 
+// the clients can ask the server for the current time so they can sync their clocks with the servers
 struct ServerTimeMessage
 {
 	float serverTime;
@@ -127,6 +141,8 @@ struct ServerTimeMessage
 sf::Packet& operator <<(sf::Packet& packet, const ServerTimeMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ServerTimeMessage& message);
 
+// request/confirmation that a projectile has been shot
+// contains all the data about the projectile being shot
 struct ShootMessage
 {
 	ProjectileID id;
@@ -141,14 +157,16 @@ struct ShootMessage
 sf::Packet& operator <<(sf::Packet& packet, const ShootMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ShootMessage& message);
 
+// tells clients that a number of projectiles have been shot
 struct ProjectilesDestroyedMessage
 {
 	sf::Uint8 count;
-	ProjectileID ids[MAX_NUM_PROJECTILES]; // id of the destroyed projectile
+	ProjectileID ids[MAX_NUM_PROJECTILES]; // ids of the destroyed projectiles
 };
 sf::Packet& operator <<(sf::Packet& packet, const ProjectilesDestroyedMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ProjectilesDestroyedMessage& message);
 
+// request/confirm that a block has been placed
 struct PlaceMessage
 {
 	BlockID id;
@@ -160,14 +178,16 @@ struct PlaceMessage
 sf::Packet& operator <<(sf::Packet& packet, const PlaceMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, PlaceMessage& message);
 
+// inform clients that one or more blocks have been destroyed
 struct BlocksDestroyedMessage
 {
 	sf::Uint8 count;
-	BlockID ids[MAX_NUM_BLOCKS];
+	BlockID ids[MAX_NUM_BLOCKS]; // the ids of the destroyed blocks
 };
 sf::Packet& operator <<(sf::Packet& packet, const BlocksDestroyedMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, BlocksDestroyedMessage& message);
 
+// inform clients the game state has changed
 struct ChangeGameStateMessage
 {
 	GameState state;
@@ -176,6 +196,7 @@ struct ChangeGameStateMessage
 sf::Packet& operator <<(sf::Packet& packet, const ChangeGameStateMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, ChangeGameStateMessage& message);
 
+// inform clients the turf line has moved
 struct TurfLineMoveMessage
 {
 	float newTurfLine;
@@ -184,6 +205,8 @@ sf::Packet& operator <<(sf::Packet& packet, const TurfLineMoveMessage& message);
 sf::Packet& operator >>(sf::Packet& packet, TurfLineMoveMessage& message);
 
 
+// a record of the players state at a certain moment in time
+// by keepnig hold of the previous player state frames the players state can be calculated at any moment in the past
 struct PlayerStateFrame
 {
 	sf::Vector2f position;

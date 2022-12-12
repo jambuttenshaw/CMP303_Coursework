@@ -7,6 +7,7 @@
 Block::Block(BlockID id, PlayerTeam team, const sf::Vector2f& position)
 	: m_BlockID(id), m_Team(team)
 {
+	// setup block
 	setOutlineColor(sf::Color::Black);
 	setOutlineThickness(-2.0f);
 
